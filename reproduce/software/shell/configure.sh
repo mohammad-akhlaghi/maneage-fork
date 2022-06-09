@@ -274,8 +274,17 @@ elif [ x$on_mac_os = xyes ]; then
     if   [ x$hw_byteorder = x1234 ]; then byte_order="Little Endian";
     elif [ x$hw_byteorder = x4321 ]; then byte_order="Big Endian";
     fi
-    address_size_physical=$(sysctl -n machdep.cpu.address_bits.physical)
-    address_size_virtual=$(sysctl -n machdep.cpu.address_bits.virtual)
+    # On macOS, the way of obtaining the number of cores is different
+    # between Intel or Apple M1 CPUs. Here we disinguish between Apple M1
+    # or others.
+    maccputype=$(sysctl -n machdep.cpu.brand_string)
+    if [ x"$maccputype" = x"Apple M1" ]; then
+        address_size_physical=$(sysctl -n machdep.cpu.thread_count)
+        address_size_virtual=$(sysctl -n machdep.cpu.logical_per_package)
+    else
+        address_size_physical=$(sysctl -n machdep.cpu.address_bits.physical)
+        address_size_virtual=$(sysctl -n machdep.cpu.address_bits.virtual)
+    fi
     address_sizes="$address_size_physical bits physical, "
     address_sizes+="$address_size_virtual bits virtual"
 else

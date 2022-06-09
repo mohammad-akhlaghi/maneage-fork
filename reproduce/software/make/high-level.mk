@@ -1162,11 +1162,13 @@ $(ibidir)/icu-$(icu-version): $(ibidir)/python-$(python-version)
 $(ibidir)/imagemagick-$(imagemagick-version): \
                       $(ibidir)/zlib-$(zlib-version) \
                       $(ibidir)/libjpeg-$(libjpeg-version) \
-                      $(ibidir)/libtiff-$(libtiff-version)
+                      $(ibidir)/libtiff-$(libtiff-version) \
+                      $(ibidir)/ghostscript-$(ghostscript-version)
 	tarball=ImageMagick-$(imagemagick-version).tar.lz
 	$(call import-source, $(imagemagick-url), $(imagemagick-checksum))
 	$(call gbuild, ImageMagick-$(imagemagick-version), static, \
-		       --without-x --disable-openmp, V=1 -j$(numthreads))
+	               --with-gslib --without-x --disable-openmp, \
+	               V=1 -j$(numthreads))
 	echo "ImageMagick $(imagemagick-version)" > $@
 
 # 'imfit' doesn't use the traditional 'configure' and 'make' to install
