@@ -1,4 +1,4 @@
-# Basic preparations, called by './project prepare'.
+# Basic preparations, called by './project make'.
 #
 # Copyright (C) 2019-2022 Mohammad Akhlaghi <mohammad@akhlaghi.org>
 #
@@ -22,7 +22,9 @@
 # Final-target
 #
 # Without this file, './project make' won't work.
-prepare-dep = $(subst prepare, ,$(makesrc))
+#
+# We need to remove the 'prepare' word from the list of 'makesrc'.
+prepare-dep = $(filter-out prepare, ,$(makesrc))
 $(bsdir)/preparation-done.mk: \
                 $(foreach s, $(prepare-dep), $(mtexdir)/$(s).tex)
 

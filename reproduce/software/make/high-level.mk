@@ -1293,16 +1293,34 @@ $(ibidir)/netpbm-$(netpbm-version): \
                  $(ibidir)/libxml2-$(libxml2-version)
 	tarball=netpbm-$(netpbm-version).tar.lz
 	$(call import-source, $(netpbm-url), $(netpbm-checksum))
+
+#	Answers to the configuration questions.
 	if [ x$(on_mac_os) = xyes ]; then
 	  answers='\n\n$(ildir)\n\n\n\n\n\n$(ildir)/include\n\n$(ildir)/include\n\n$(ildir)/include\nnone\n\n'
 	else
 	  answers='\n\n\n\n\n\n\n\n\n\n\n\n\nnone\n\n\n'
 	fi
+
+#	Go into the temporary directory and unpack the tarball.
 	cd $(ddir)
 	unpackdir=netpbm-$(netpbm-version)
 	rm -rf $$unpackdir
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+
+#	As of NetPBM 10.73.39 and Flex 2.6.4-410-74a89fd (commit 74a89fd in
+#	Flex's Git that is 410 commits after version 2.6.4), there is the
+#	following line: 'if (0) yyunput(0, NULL);'. It will cause a crash
+#	and is just to avoid compiler warnings! So we are setting the
+#	'yyunput(0, NULL);' to the redundant 'yyunput(0, NULL);' to let the
+#	compilation finish!
+	awk '$$1=="if" && $$2=="(0)"{inif=1} \
+	     {if(inif==1 && $$1=="yyunput(0,") \
+	        print "{int a=1;}"; else print $$0}' \
+	    converter/pbm/thinkjettopbm.l > thinkjettopbm.tmp
+	mv thinkjettopbm.tmp converter/pbm/thinkjettopbm.l
+
+#	Pass the answers to the configure script then build and install it.
 	printf "$$answers" | ./configure
 	make
 	rm -rf $(ddir)/$$unpackdir/install
@@ -1396,6 +1414,7 @@ $(ibidir)/sextractor-$(sextractor-version): \
 	               --with-openblas-libdir=$(ildir) \
 	               --with-openblas-incdir=$(idir)/include)
 	ln -fs $(ibdir)/sex $(ibdir)/sextractor
+	ln -fs $(ibdir)/sex $(ibdir)/source-extractor
 	cp $(dtexdir)/sextractor.tex $(ictdir)/
 	echo "SExtractor $(sextractor-version) \citep{sextractor}" > $@
 
@@ -1431,6 +1450,14 @@ $(ibidir)/swig-$(swig-version):
 #       --disable-mount
 #       --disable-wall
 #       --disable-su
+#   Because they fail on older kernels (tested on Linux 2.6.32)
+#   and they need root (to actually use; so are not relevant to
+#   Maneage):
+#       --disable-swapon
+#       --disable-unshare
+#       --disable-libmount
+#       --disable-mountpoint
+#       --enable-libmount-support-mtab
 #
 # NOTE ON INSTALLATION DIRECTORY: Util-linux libraries are relatively
 # low-level and may cause conflicts with system libraries (especilly when
@@ -1459,9 +1486,14 @@ $(ibidir)/util-linux-$(util-linux-version): | $(idircustom)
 	cd util-linux-$(util-linux-version)
 	./configure --prefix=$(idircustom)/util-linux \
 	            --disable-dependency-tracking \
+	            --enable-libmount-support-mtab \
 	            --disable-silent-rules \
+	            --disable-mountpoint \
+	            --disable-libmount \
+	            --disable-unshare \
 	            --without-systemd \
 	            --enable-libuuid \
+	            --disable-swapon \
 	            --disable-mount \
 	            --disable-ipcrm \
 	            --disable-ipcs \

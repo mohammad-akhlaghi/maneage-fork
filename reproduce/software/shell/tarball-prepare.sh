@@ -31,25 +31,21 @@ odir=
 idir=
 quiet=
 basedir=$PWD
+scriptname=$0
 
 
 # The --help output
 print_help() {
     cat <<EOF
-Usage: $0 [OPTIONS]
+Usage: $scriptname [OPTIONS]
 
 Low-level script to create maneage-standard tarballs.
-
   -o, --output-dir         Target directory to write the packed tarballs.
                            Current: $odir
-
-
   -i, --input-dir          Directory containing original tarballs.
                            Current: $idir
-
   -q, --quiet              Suppress logging information. Only print the
                            final packed file and its sha512sum.
-
 Maneage URL: https://maneage.org
 
 Report bugs: https://savannah.nongnu.org/bugs/?group=reproduce
@@ -59,45 +55,87 @@ EOF
 
 
 
+
+# Functions to check option values and complain if necessary.
+on_off_option_error() {
+    if [ x"$2" = x ]; then
+        echo "$scriptname: '$1' doesn't take any values"
+    else
+        echo "$scriptname: '$1' (or '$2') doesn't take any values"
+    fi
+    exit 1
+}
+
+check_v() {
+    if [ x"$2" = x ]; then
+        cat <<EOF
+$scriptname: option '$1' requires an argument. Try '$scriptname --help' for more information
+EOF
+        exit 1;
+    fi
+}
+
+option_given_and_valid() {
+    dirname="$1"
+    optionlong="$2"
+    optionshort="$3"
+    if [ x"$dirname" = x ]; then
+	cat <<EOF
+$scriptname: no '--$optionlong' (or '-$optionshort') given: use this for identifying the directory containing the input tarballs
+EOF
+	exit 1
+    else
+	dirname=$(echo "$dirname" | sed 's|/$||'); # Remove possible trailing slash
+	if [ ! -d "$dirname" ]; then
+	    cat <<EOF
+$scriptname: '$dirname' that is given to '--$optionlong' (or '-$optionshort') couldn't be opened
+EOF
+	    exit 1
+	else
+	    outdir=$(realpath $dirname)
+	fi
+    fi
+    ogvout=$outdir
+}
+
+
+
+
+
 # Parse the arguments
 while [ $# -gt 0 ]
 do
-  case $1 in
-      -q|--quiet)      quiet=1; shift;;
-      -h|--help|-'?')  print_help; exit 0;;
-      -i|--input-dir)
-          # Remove the trailing '/' introduced by autocomplete
-          idir=$(echo "$2" | sed 's|/$||');
-          shift;  # past argument
-          shift;; # past value
-      -o|--output-dir)
-          # Remove the trailing '/' introduced by autocomplete
-          odir=$(echo "$2" | sed 's|/$||');
-          shift;  # past argument
-          shift;; # past value
-      *)  echo "$0: unknown option '$1'"; exit 1;;
+    case $1 in
+	# Input and Output directories
+        -i|--input-dir)      idir="$2";                           check_v "$1" "$idir"; shift;shift;;
+        -i=*|--input-dir=*)  idir="${1#*=}";                      check_v "$1" "$idir"; shift;;
+        -i*)                 idir=$(echo "$1" | sed -e's/-i//');  check_v "$1" "$idir"; shift;;
+        -o|--output-dir)     odir="$2";                           check_v "$1" "$odir"; shift;shift;;
+        -o=*|--output-dir=*) odir="${1#*=}";                      check_v "$1" "$odir"; shift;;
+        -o*)                 odir=$(echo "$1" | sed -e's/-o//');  check_v "$1" "$odir"; shift;;
+
+	# Operating mode options
+        -?|--help)        print_help; exit 0;;
+        -'?'*|--help=*)   on_off_option_error --help -?;;
+        -q|--quiet)       quiet=1; shift;;
+        -q*|--quiet=*)    on_off_option_error --quiet -q;;
+	*)  echo "$scriptname: unknown option '$1'"; exit 1;;
   esac
 done
 
 
 
 
-# Extract the 'absolute path' to input and output directories. Working with
-# relative path is a great source of confusion and unwanted side-effects
-# like moving/removing files by accident.
-if [ ! -d "$idir" ]; then
-    echo "$0: please pass the input directory (option --input-dir or -i)."
-    exit 1
-else
-    idir=$(realpath $idir)
-fi
 
-if [ ! -d "$odir" ]; then
-    echo "$0: please pass the output directory (option --output-dir or -o)."
-    exit 1
-else
-    odir=$(realpath $odir)
-fi
+# Basic sanity checks
+#
+# Make sure the input and output directories are given. Also extract
+# the absolute path to input and output directories and remove any
+# possible trailing '/'. Working with a relative path is a great
+# source of confusion and unwanted side-effects like moving/removing
+# files by accident.
+option_given_and_valid "$idir" "input-dir"  "i" && idir=$ogvout
+option_given_and_valid "$odir" "output-dir" "o" && odir=$ogvout
 
 
 
@@ -117,15 +155,15 @@ fi
 for f in $allfiles; do
 
     # Seperate name and version number
-    name=$(echo $f | sed -e 's/.tar.*//' | \
-                     awk 'BEGIN { FS = "[-_ ]" } {print $1 "-" $2}')
+    name=$(echo $f | sed -e 's/.tar.*//' \
+               | awk 'BEGIN { FS = "[-_ ]" } {print $1 "-" $2}')
 
     # Skip previously packed files
     if [ -f $odir/$name.tar.lz ]; then
 
         # Print the info message if not in quiet mode
         if [ -z $quiet ]; then
-            echo "$0: skipping '$odir/$name.tar.lz'"
+            echo "$scriptname: $odir/$name.tar.lz: already present in output directory"
         fi
 
         # skip this file
@@ -134,7 +172,7 @@ for f in $allfiles; do
 
         # Print the info message if not in quiet mode
         if [ -z $quiet ]; then
-            echo "$0: processing '$idir/$f'"
+            echo "$scriptname: processing '$idir/$f'"
         fi
     fi
 

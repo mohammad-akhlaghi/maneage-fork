@@ -529,7 +529,7 @@ case $operation in
                        PYTHONPATH="$instdir"/lib/python/site-packages \
                        PYTHONPATH3="$instdir"/lib/python/site-packages \
                        PS1="[\[\033[01;35m\]maneage@\h \W\[\033[32m\]\[\033[00m\]]$ " \
-                       "$instdir"/bin/bash
+                       "$instdir"/bin/bash --noprofile --norc
         ;;
 
 

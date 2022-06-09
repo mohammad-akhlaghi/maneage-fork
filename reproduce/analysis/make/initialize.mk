@@ -138,10 +138,10 @@ curdir   := $(shell echo $$(pwd))
 # avoid conflicts with existing TeX Live solutions. Later (in 'paper.mk'),
 # we are also going to overwrite 'TEXINPUTS' just before 'pdflatex'.
 .ONESHELL:
-.SHELLFLAGS = -ec
 export TEXINPUTS :=
 export CCACHE_DISABLE := 1
 export PATH := $(installdir)/bin
+.SHELLFLAGS = --noprofile --norc -ec
 export LDFLAGS := -L$(installdir)/lib
 export SHELL := $(installdir)/bin/bash
 export CPPFLAGS := -I$(installdir)/include

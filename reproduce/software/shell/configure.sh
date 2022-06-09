@@ -191,7 +191,7 @@ free_space_warning()
 {
     fs_threshold=$1
     fs_destpath="$2"
-    return $(df "$fs_destpath" \
+    return $(df -P "$fs_destpath" \
                 | awk 'FNR==2 {if($4>'$fs_threshold') print 1; \
                                else                   print 0; }')
 }
@@ -814,9 +814,22 @@ if [ $rewritepconfig = yes ]; then
         # 'which' isn't in POSIX, so we are using 'command -v' instead.
         name=$(command -v wget)
 
+        # See if the host wget has the '--no-use-server-timestamps' option
+        # (for example wget 1.12 doesn't have it). If not, we'll have to
+        # remove it. This won't affect the analysis of Maneage in anyway,
+        # its just to avoid re-downloading if the server timestamps are
+        # bad; at the worst case, it will just cause a re-download of an
+        # input software source code (for data inputs, we will use our own
+        # wget that has this option).
+        tsname="no-use-server-timestamps"
+        tscheck=$(wget --help | grep $tsname || true)
+        if [ x"$tscheck" = x ]; then wgetts=""
+        else                         wgetts="--$tsname";
+        fi
+
         # By default Wget keeps the remote file's timestamp, so we'll have
         # to disable it manually.
-        downloader="$name --no-use-server-timestamps -O";
+        downloader="$name $wgetts -O";
     elif type curl > /dev/null 2>/dev/null; then
         name=$(command -v curl)
 

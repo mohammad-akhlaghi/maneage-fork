@@ -110,7 +110,7 @@ verify-txt-no-comments-no-space = \
 #               essentially the same as 'verify-dep', but it has removed
 #               the 'initialize' step (which is information about the
 #               pipeline, not the results).
-verify-dep = $(subst verify,,$(subst paper,,$(makesrc)))
+verify-dep = $(filter-out verify paper, $(makesrc))
 verify-check = $(subst initialize,,$(verify-dep))
 $(mtexdir)/verify.tex: $(foreach s, $(verify-dep), $(mtexdir)/$(s).tex)
 
