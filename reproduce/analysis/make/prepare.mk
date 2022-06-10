@@ -24,7 +24,7 @@
 # Without this file, './project make' won't work.
 #
 # We need to remove the 'prepare' word from the list of 'makesrc'.
-prepare-dep = $(filter-out prepare, ,$(makesrc))
+prepare-dep = $(filter-out prepare, $(makesrc))
 $(bsdir)/preparation-done.mk: \
                 $(foreach s, $(prepare-dep), $(mtexdir)/$(s).tex)
 

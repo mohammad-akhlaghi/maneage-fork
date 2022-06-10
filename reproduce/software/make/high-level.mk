@@ -1204,17 +1204,17 @@ $(ibidir)/imfit-$(imfit-version): \
 	sed -i 's|/usr/local|$(idir)|g' SConstruct
 	sed -i 's|/usr/include|$(idir)/include|g' SConstruct
 	sed -i 's|.append(|.insert(0,|g' SConstruct
-	scons --no-openmp  --no-nlopt \
+	scons --no-openmp --no-nlopt \
 	      --cc=$(ibdir)/gcc --cpp=$(ibdir)/g++ \
 	      --header-path=$(idir)/include $$headerpath \
 	      --lib-path=$(idir)/lib imfit
 	cp imfit $(ibdir)
-	scons --no-openmp  --no-nlopt \
+	scons --no-openmp --no-nlopt \
 	      --cc=$(ibdir)/gcc --cpp=$(ibdir)/g++ \
 	      --header-path=$(idir)/include $$headerpath \
 	      --lib-path=$(idir)/lib imfit-mcmc
 	cp imfit-mcmc $(ibdir)
-	scons --no-openmp  --no-nlopt \
+	scons --no-openmp --no-nlopt \
 	      --cc=$(ibdir)/gcc --cpp=$(ibdir)/g++ \
 	      --header-path=$(idir)/include $$headerpath \
 	      --lib-path=$(idir)/lib makeimage

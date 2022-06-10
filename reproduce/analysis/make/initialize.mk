@@ -434,6 +434,100 @@ dist-software:
 
 
 
+# Download input data
+# --------------------
+#
+# 'reproduce/analysis/config/INPUTS.conf' contains the input dataset
+# properties. In most cases, you will not need to edit this rule. Simply
+# follow the instructions of 'INPUTS.conf' and set the variables names
+# according to the described standards and everything should be fine.
+#
+# TECHNICAL NOTE on the '$(foreach, n ...)' loop of 'inputdatasets': we are
+# using several (relatively complex!) features particular to Make: In GNU
+# Make, '.VARIABLES' "... expands to a list of the names of all global
+# variables defined so far" (from the "Other Special Variables" section of
+# the GNU Make manual). Assuming that the pattern 'INPUT-%-sha256' is only
+# used for input files, we find all the variables that contain the input
+# file name (the '%' is the filename). Finally, using the
+# pattern-substitution function ('patsubst'), we remove the fixed string at
+# the start and end of the variable name.
+#
+# Download lock file: Most systems have a single connection to the
+# internet, therefore downloading is inherently done in series. As a
+# result, when more than one dataset is necessary for download, if they are
+# done in parallel, the speed will be slower than downloading them in
+# series. We thus use the 'flock' program to tie/lock the downloading
+# process with a file and make sure that only one downloading event is in
+# progress at every moment.
+$(indir):; mkdir $@
+downloadwrapper = $(bashdir)/download-multi-try
+inputdatasets = $(foreach i, \
+                  $(patsubst INPUT-%-sha256,%, \
+                    $(filter INPUT-%-sha256,$(.VARIABLES))), \
+                  $(indir)/$(i))
+$(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
+
+#	Set the necessary parameters for this input file as shell variables
+#	(to help in readability).
+	url=$(INPUT-$*-url)
+	sha=$(INPUT-$*-sha256)
+
+#	Download (or make the link to) the input dataset. If the file
+#	exists in 'INDIR', it may be a symbolic link to some other place in
+#	the filesystem. To avoid too many links when using these files
+#	during processing, we'll use 'readlink -f' so the link we make here
+#	points to the final file directly (note that 'readlink' is part of
+#	GNU Coreutils). If its not a link, the 'readlink' part has no
+#	effect.
+	unchecked=$@.unchecked
+	if [ -f $(INDIR)/$* ]; then
+	  ln -fs $$(readlink -f $(INDIR)/$*) $$unchecked
+	else
+	  touch $(lockdir)/download
+	  $(downloadwrapper) "wget --no-use-server-timestamps -O" \
+	                     $(lockdir)/download $$url $$unchecked
+	fi
+
+#	Check the checksum to see if this is the proper dataset.
+	sum=$$(sha256sum $$unchecked | awk '{print $$1}')
+	if [ $$sum = $$sha ]; then
+	  mv $$unchecked $@
+	  echo "Integrity confirmed, using $@ in this project."
+
+#	Checksums didn't match.
+	else
+
+#	  The user has asked to update the checksum in 'INPUTS.conf'.
+	  if [ $$sha = "--auto-replace--" ]; then
+
+#	    Put the updated 'INPUTS.conf' in a temporary file.
+	    inputstmp=$@.inputs
+	    awk '{if($$1 == "INPUT-$*-sha256") \
+	            $$3="'$$sum'"; print}' \
+	            $(pconfdir)/INPUTS.conf > $$inputstmp
+
+#	    Update the INPUTS.conf, but not in parallel (using the
+#	    file-lock feature of 'flock').
+	    touch $(lockdir)/inputs-update
+	    flock $(lockdir)/inputs-update \
+	          sh -c "mv $$inputstmp $(pconfdir)/INPUTS.conf"
+	    mv $$unchecked $@
+
+#	  Error on non-matching checksums.
+	  else
+	    echo; echo;
+	    echo "Wrong SHA256 checksum for input file '$*':"
+	    echo "  File location: $$unchecked"; \
+	    echo "  Expected SHA256 checksum:   $$sha"; \
+	    echo "  Calculated SHA256 checksum: $$sum"; \
+	    echo; exit 1
+	  fi
+	fi
+
+
+
+
+
 # Directory containing to-be-published datasets
 # ---------------------------------------------
 #
@@ -551,3 +645,11 @@ $(mtexdir)/initialize.tex: | $(mtexdir)
 	fi
 	echo "\newcommand{\maneagedate}{$$d}" >> $@
 	echo "\newcommand{\maneageversion}{$$v}" >> $@
+
+#	----------------- delete the lines below this -------------------
+#	These lines are only intended for the default template's output, to
+#	demonstrate that is it important to put links in the PDF (for
+#	showing where your input data came from). Remove these lines as
+#	part of the initial customization of Maneage for your project.
+	echo "\\newcommand{\\wfpctwourl}{$(INPUT-wfpc2.fits-url)}" >> $@
+#	----------------- delete the lines above this -------------------

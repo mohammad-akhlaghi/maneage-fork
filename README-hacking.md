@@ -679,22 +679,13 @@ First custom commit
 
      - `reproduce/analysis/make/top-make.mk`: Delete the `delete-me` line
        in the `makesrc` definition. Just make sure there is no empty line
-       between the `download \` and `verify \` lines (they should be
+       between the `initialize \` and `verify \` lines (they should be
        directly under each other).
 
-     - `reproduce/analysis/make/verify.mk`: In the final recipe, under the
-       commented line `Verify TeX macros`, remove the full line that
-       contains `delete-me`, and set the value of `s` in the line for
-       `download` to `XXXXX` (any temporary string, you'll fix it in the
-       end of your project, when its complete).
-
-     - Delete all `delete-me*` files in the following directories:
-
-       ```shell
-       $ rm tex/src/delete-me*
-       $ rm reproduce/analysis/make/delete-me*
-       $ rm reproduce/analysis/config/delete-me*
-       ```
+     - `reproduce/analysis/make/initialize.mk`: in the very end of this
+       file, you will see a set of lines between `delete the lines below
+       this` and `delete the lines above this`. Delete this whole group of
+       lines (including the two instruction lines).
 
      - `reproduce/analysis/config/verify-outputs.conf`: Disable
        verification of outputs by changing the `yes` (the value of
@@ -704,6 +695,14 @@ First custom commit
        customizations" section below). This is a critical step and only
        takes a few minutes when your project is finished. So DON'T FORGET
        to activate it in the end.
+
+     - Delete all `delete-me*` files in the following directories:
+
+       ```shell
+       $ rm tex/src/delete-me*
+       $ rm reproduce/analysis/make/delete-me*
+       $ rm reproduce/analysis/config/delete-me*
+       ```
 
      - Re-make the project (after a cleaning) to see if you haven't
        introduced any errors.

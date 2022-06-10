@@ -111,7 +111,6 @@ endif
 # the same order that they are defined here (we aren't just using a
 # wild-card like the configuration Makefiles).
 makesrc = initialize \
-          download \
           delete-me \
           verify \
           paper

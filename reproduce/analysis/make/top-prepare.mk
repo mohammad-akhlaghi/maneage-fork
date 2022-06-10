@@ -64,7 +64,6 @@ endif
 # './project prepare' and './project make' will first read 'initialize.mk'
 # and 'downloads.mk'.
 makesrc = initialize \
-          download \
           prepare
 
 
