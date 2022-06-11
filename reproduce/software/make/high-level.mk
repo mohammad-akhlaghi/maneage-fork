@@ -1380,16 +1380,49 @@ $(ibidir)/scamp-$(scamp-version): \
 	cp $(dtexdir)/scamp.tex $(ictdir)/
 	echo "SCAMP $(scamp-version) \citep{scamp}" > $@
 
-# Since 'scons' doesn't use the traditional GNU installation with
-# 'configure' and 'make' it is installed manually using 'python'.
+# Since 'scons' doesn't use the traditional GNU installation with 'configure'
+# and 'make' it is installed manually using 'python'. After 'scons' is
+# installed, there is a file, '$(ildir)/scons/SCons/Platform/posix.py', that
+# contains several hard coded paths like '/usr/local'. This is bad because it
+# causes later problems in the installation of other programs (e.g., 'imfit').
+# As a consequence, at the end of the installation we replace the
+# '/usr/local' by the one Maneage uses: '$(idir)'. Only one of these paths
+# is replaced, the first one: '/usr/local'.
 $(ibidir)/scons-$(scons-version): $(ibidir)/python-$(python-version)
+
+#	Prepare the tarball
 	tarball=scons-$(scons-version).tar.gz
 	$(call import-source, $(scons-url), $(scons-checksum))
+
+#	Unpack and enter the source directory
 	cd $(ddir)
 	unpackdir=scons-$(scons-version)
 	rm -rf $$unpackdir
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+
+#	Unfortuantely SCons hard-codes its search PATH in its source (to
+#	use POSIX operating system defaults)! So the only way to modify it
+#	is to edit the source manually! Instead of using SED to replace a
+#	fixed string, we are using AWK to replace the value. This is done
+#	because in future versions, they may suddenly change the order, and
+#	the fixed string won't match with SED. But with AWK, we can be
+#	fully ignorant to their default value, and just change the value of
+#	the known variable. Some technical notes:
+#          - In the shell, the single quote is used to separate AWK's
+#	     environment from the shell, we are using '\47' instead of the
+#	     single quote.
+#          - In Python (the source we are editing) indentation is
+#            meaningful, but SPACE is a delimiter in AWK and AWK will
+#            remove leading/trailing SPACE from its values. So we'll
+#            manually inseart the necessary number of spaces before the
+#            modified line.
+	awk '{ if($$1=="env[\47ENV\47][\47PATH\47]") \
+	         {$$3="\47'$(ibdir)'\47"; print "    "$$0} \
+	       else print}' engine/SCons/Platform/posix.py > posix-edited.py
+	mv posix-edited.py engine/SCons/Platform/posix.py
+
+#	Install SCons
 	python setup.py install
 	cd ..
 	rm -rf $$unpackdir
