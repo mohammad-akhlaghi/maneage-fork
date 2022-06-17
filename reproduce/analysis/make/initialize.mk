@@ -62,13 +62,17 @@ pconfdir    = reproduce/analysis/config
 # should be created, and in the 'make' phase, its contents should be
 # loaded.
 #
-# If you don't need any preparation, please simply comment these lines.
+# If your project doesn't need any preparation, you can ignore this.
 ifeq (x$(project-phase),xprepare)
 $(prepdir):; mkdir $@
 else
 include $(bsdir)/preparation-done.mk
 ifeq (x$(include-prepare-results),xyes)
-include $(prepdir)/*.mk
+# The '-' behind the include is The '-' is used for adding the files only
+# if it is possible (they exist). This is necessary because sometimes the
+# user will have only '*.conf' or '*.mk' files. So, if the '-' is not used,
+# Make will complain about not finding these files.
+-include $(prepdir)/*.mk $(prepdir)/*.conf
 endif
 endif
 
