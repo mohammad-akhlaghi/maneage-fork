@@ -947,6 +947,7 @@ $(ibidir)/astrometrynet-$(astrometrynet-version): \
                         $(ibidir)/libpng-$(libpng-version) \
                         $(ibidir)/netpbm-$(netpbm-version) \
                         $(ibidir)/wcslib-$(wcslib-version) \
+                        $(ipydir)/astropy-$(astropy-version) \
                         $(ibidir)/cfitsio-$(cfitsio-version) \
                         $(ibidir)/libjpeg-$(libjpeg-version)
 
