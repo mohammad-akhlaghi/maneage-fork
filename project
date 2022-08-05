@@ -516,20 +516,25 @@ case $operation in
         # tools like some text editors.
         bdir=`.local/bin/realpath .build`
         instdir="$bdir"/software/installed
+        bindir="$bdir"/software/installed/bin
+        rcfile=$(pwd)/reproduce/software/shell/bashrc.sh
         .local/bin/env -i \
                        HOME="$bdir" \
                        TERM="$TERM" \
+                       PATH="$bindir" \
                        CCACHE_DISABLE=1 \
-                       PATH="$instdir"/bin \
+                       PROJECT_STATUS=shell \
+                       SHELL="$bindir"/bash \
+                       COLORTERM="$COLORTERM" \
+                       PROJECT_RCFILE="$rcfile" \
                        LDFLAGS=-L"$instdir"/lib \
-                       SHELL="$instdir"/bin/bash \
                        CPPFLAGS=-I"$instdir"/include \
                        LD_LIBRARY_PATH="$instdir"/lib \
                        OMPI_MCA_plm_rsh_agent=/bin/false \
                        PYTHONPATH="$instdir"/lib/python/site-packages \
                        PYTHONPATH3="$instdir"/lib/python/site-packages \
                        PS1="[\[\033[01;35m\]maneage@\h \W\[\033[32m\]\[\033[00m\]]$ " \
-                       "$instdir"/bin/bash --noprofile --norc
+                       "$bindir"/bash --noprofile --rcfile "$rcfile"
         ;;
 
 

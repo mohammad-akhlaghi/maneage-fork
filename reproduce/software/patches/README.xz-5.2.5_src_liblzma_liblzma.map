@@ -1,0 +1,8 @@
+2022-07-14 B Roukema
+xz-5.2.5_src_liblzma_liblzma.map is a patched version of xz-5.2.5/src/liblzma/liblzma.map 
+based on discussion at https://savannah.nongnu.org/bugs/index.php?62700
+and https://github.com/easybuilders/easybuild-easyconfigs/issues/14991 and
+https://raw.githubusercontent.com/easybuilders/easybuild-easyconfigs/bcebb3320ffb63f9804ca8d4d64d1822ec7c9792/easybuild/easyconfigs/x/XZ/XZ-5.2.5_compat-libs.patch
+
+Since we don't yet have 'patch' in 'basic.mk', this file has to be copied
+into place rather than patched.

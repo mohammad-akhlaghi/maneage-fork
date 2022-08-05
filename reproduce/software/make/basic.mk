@@ -55,6 +55,7 @@ ddir    = $(BDIR)/software/build-tmp
 idir    = $(BDIR)/software/installed
 ibdir   = $(BDIR)/software/installed/bin
 ildir   = $(BDIR)/software/installed/lib
+iidir   = $(BDIR)/software/installed/include
 ibidir  = $(BDIR)/software/installed/version-info/proglib
 
 # Ultimate Makefile target. GNU Nano (a simple and very light-weight text
@@ -87,12 +88,17 @@ export SHELL := $(ibdir)/dash
 export PATH := $(ibdir):$(PATH)
 export PKG_CONFIG_PATH := $(ildir)/pkgconfig
 export PKG_CONFIG_LIBDIR := $(ildir)/pkgconfig
-export CPPFLAGS := -I$(idir)/include $(CPPFLAGS) \
-                   -Wno-nullability-completeness
 export LDFLAGS := $(rpath_command) -L$(ildir) $(LDFLAGS)
 
 # Disable built-in rules (which are not needed here!)
 .SUFFIXES:
+
+# See description of '-Wno-nullability-completeness' in
+# 'reproduce/software/shell/configure.sh'.
+ifeq ($(on_mac_os),yes)
+  noccwarnings=-Wno-nullability-completeness
+endif
+export CPPFLAGS := -I$(idir)/include $(CPPFLAGS) $(noccwarnings)
 
 # This is the "basic" tools where we are relying on the host operating
 # system, but are slowly populating our basic software envirnoment. To run
@@ -202,6 +208,7 @@ $(ibidir)/low-level-links: $(ibidir)/grep-$(grep-version) \
 	$(call makelink,xcrun)
 	$(call makelink,sysctl)
 	$(call makelink,sw_vers)
+	$(call makelink,codesign)
 	$(call makelink,dsymutil)
 	$(call makelink,install_name_tool)
 
@@ -221,6 +228,10 @@ $(ibidir)/low-level-links: $(ibidir)/grep-$(grep-version) \
 	    done
 	  fi
 	done
+
+#	Useful tools: 'ldd' (list libraries linked by binary on GNU
+#	systems)
+	$(call makelink,ldd)
 
 #	We want this to be empty (so it doesn't interefere with the other
 #	files in 'ibidir'.
@@ -252,10 +263,46 @@ $(ibidir)/gzip-$(gzip-version): | $(ibdir) $(ildir) $(lockdir)
 	$(call gbuild, gzip-$(gzip-version), static, , V=1)
 	echo "GNU Gzip $(gzip-version)" > $@
 
+# 2022-07-14 B Roukema
+#
+# xz-5.2.5 fails on (at least) CentOS 7 (Redhat) systems while trying
+# to compile 'cmake' in Maneage - this is Maneage bug 62700 [1].
+#
+# The fix appears to be just a few lines, although it's not clear
+# how robust or long-term it is. Since we don't yet have 'patch' in
+# 'basic.mk', this file has to be copied into place rather than patched.
+
+# xz-5.2.5_src_liblzma_liblzma.map is a patched
+# version of xz-5.2.5/src/liblzma/liblzma.map based on discussion at
+# [1] + [2] + the patch file [3].
+#
+# [1] https://savannah.nongnu.org/bugs/index.php?62700
+# [2] https://github.com/easybuilders/easybuild-easyconfigs/issues/14991
+# [3] https://raw.githubusercontent.com/easybuilders/easybuild-easyconfigs/bcebb3320ffb63f9804ca8d4d64d1822ec7c9792/easybuild/easyconfigs/x/XZ/XZ-5.2.5_compat-libs.patch
 $(ibidir)/xz-$(xz-version): $(ibidir)/gzip-$(gzip-version)
+
+#	Prepare the tarball.
 	tarball=xz-$(xz-version).tar.lz
 	$(call import-source, $(xz-url), $(xz-checksum))
-	$(call gbuild, xz-$(xz-version), static)
+
+#	Until the bug mentioned above is fixed, we'll can't use the generic
+#	rule.
+#	$(call gbuild, xz-$(xz-version), static)
+
+#	Configure and build with patched file.
+	srcdir=$$(pwd)
+	unpackdir=xz-$(xz-version)
+	patchedfile=xz-5.2.5_src_liblzma_liblzma.map
+	cd $(ddir)
+	rm -rf $$unpackdir
+	tar -x -f $(tdir)/$$tarball
+	cd $$unpackdir
+	cp -pv $$srcdir/reproduce/software/patches/$$patchedfile \
+	       src/liblzma/liblzma.map # copy the fixed file into place
+	./configure --prefix=$(idir)
+	make install
+	cd ..
+	rm -rf $$unpackdir
 	echo "XZ Utils $(xz-version)" > $@
 
 $(ibidir)/bzip2-$(bzip2-version): $(ibidir)/gzip-$(gzip-version)
@@ -303,26 +350,6 @@ $(ibidir)/bzip2-$(bzip2-version): $(ibidir)/gzip-$(gzip-version)
 	ln -fs libbz2.so.$(bzip2-version) libbz2.so
 	echo "Bzip2 $(bzip2-version)" > $@
 
-$(ibidir)/unzip-$(unzip-version): $(ibidir)/gzip-$(gzip-version)
-	tarball=unzip-$(unzip-version).tar.lz
-	$(call import-source, $(unzip-url), $(unzip-checksum))
-	$(call gbuild, unzip-$(unzip-version), static,, \
-	               -f unix/Makefile generic \
-	               CFLAGS="-DBIG_MEM -DMMAP",,pwd, \
-	               -f unix/Makefile generic \
-	               BINDIR=$(ibdir) MANDIR=$(idir)/man/man1 )
-	echo "Unzip $(unzip-version)" > $@
-
-$(ibidir)/zip-$(zip-version): $(ibidir)/gzip-$(gzip-version)
-	tarball=zip-$(zip-version).tar.lz
-	$(call import-source, $(zip-url), $(zip-checksum))
-	$(call gbuild, zip-$(zip-version), static,, \
-	               -f unix/Makefile generic \
-	               CFLAGS="-DBIG_MEM -DMMAP",,pwd, \
-	               -f unix/Makefile generic \
-	               BINDIR=$(ibdir) MANDIR=$(idir)/man/man1 )
-	echo "Zip $(zip-version)" > $@
-
 # Some programs (like Wget and CMake) that use zlib need it to be dynamic
 # so they use our custom build. So we won't force a static-only build.
 #
@@ -341,11 +368,9 @@ $(ibidir)/zlib-$(zlib-version): $(ibidir)/gzip-$(gzip-version)
 # software to be built).
 $(ibidir)/tar-$(tar-version): \
               $(ibidir)/xz-$(xz-version) \
-              $(ibidir)/zip-$(zip-version) \
               $(ibidir)/gzip-$(gzip-version) \
               $(ibidir)/zlib-$(zlib-version) \
-              $(ibidir)/bzip2-$(bzip2-version) \
-              $(ibidir)/unzip-$(unzip-version)
+              $(ibidir)/bzip2-$(bzip2-version)
 
 #	Since all later programs depend on Tar, the configuration will hit
 #	a bottleneck here: only making Tar. So its more efficient to built
@@ -629,7 +654,7 @@ $(ibidir)/perl-$(perl-version): $(ibidir)/patchelf-$(patchelf-version)
 	            -Dcccdlflags='-fPIC' \
 	            $(perl-conflddlflags) \
 	            -Dldflags="$$LDFLAGS"
-	make -j$(numthreads)
+	make -j$(numthreads) V=1
 	make install
 	cd ..
 	rm -rf perl-$(perl-version)
@@ -807,6 +832,8 @@ $(ibidir)/curl-$(curl-version): $(ibidir)/coreutils-$(coreutils-version)
 	               --without-librtmp \
 	               --without-libidn2 \
 	               --without-wolfssl \
+	               --without-nghttp2 \
+	               --without-nghttp3 \
 	               --without-brotli \
 	               --without-gnutls \
 	               --without-cyassl \
@@ -814,6 +841,7 @@ $(ibidir)/curl-$(curl-version): $(ibidir)/coreutils-$(coreutils-version)
 	               --without-axtls \
 	               --disable-ldaps \
 	               --disable-ldap \
+	               --without-zstd \
 	               --without-nss, V=1)
 
 	if [ -f $(ibdir)/patchelf ]; then
@@ -875,6 +903,12 @@ $(ibidir)/wget-$(wget-version): \
 # process of the higher-level programs and libraries. Note that during the
 # building of those higher-level programs (after this Makefile finishes),
 # there is no access to the system's PATH.
+$(ibidir)/bison-$(bison-version): $(ibidir)/help2man-$(help2man-version)
+	tarball=bison-$(bison-version).tar.lz
+	$(call import-source, $(bison-url), $(bison-checksum))
+	$(call gbuild, bison-$(bison-version), static, ,V=1 -j$(numthreads))
+	echo "GNU Bison $(bison-version)" > $@
+
 $(ibidir)/diffutils-$(diffutils-version): \
                     $(ibidir)/coreutils-$(coreutils-version)
 	tarball=diffutils-$(diffutils-version).tar.lz
@@ -927,6 +961,13 @@ $(ibidir)/gawk-$(gawk-version): \
 
 #	Build final target.
 	echo "GNU AWK $(gawk-version)" > $@
+
+$(ibidir)/help2man-$(help2man-version): \
+                   $(ibidir)/coreutils-$(coreutils-version)
+	tarball=help2man-$(help2man-version).tar.lz
+	$(call import-source, $(help2man-url), $(help2man-checksum))
+	$(call gbuild, help2man-$(help2man-version), static, ,V=1)
+	echo "Help2man $(Help2man-version)" > $@
 
 $(ibidir)/libiconv-$(libiconv-version): \
                    $(ibidir)/pkg-config-$(pkgconfig-version)
@@ -1070,6 +1111,17 @@ $(ibidir)/sed-$(sed-version): $(ibidir)/coreutils-$(coreutils-version)
 $(ibidir)/texinfo-$(texinfo-version): \
                   $(ibidir)/perl-$(perl-version) \
                   $(ibidir)/gettext-$(gettext-version)
+
+#	Setting for the XS sub-package. "This is because in theory, the XS
+#	module could be built with a different compiler to the rest of the
+#	project, needing completely different flags" (part of [1])
+#
+#       [1] https://lists.gnu.org/archive/html/bug-texinfo/2022-08/msg00068.html
+	export PERL="$(ibdir)/perl"
+	export PERL_EXT_LDFLAGS="-L$(ildir)"
+	export PERL_EXT_CPPFLAGS="-I$(iidir)"
+
+#	Basic build commands.
 	tarball=texinfo-$(texinfo-version).tar.lz
 	$(call import-source, $(texinfo-url), $(texinfo-checksum))
 	$(call gbuild, texinfo-$(texinfo-version), static)
@@ -1136,6 +1188,7 @@ $(ibidir)/binutils-$(binutils-version): \
                    $(ibidir)/gawk-$(gawk-version) \
                    $(ibidir)/grep-$(grep-version) \
                    $(ibidir)/wget-$(wget-version) \
+                   $(ibidir)/bison-$(bison-version) \
                    $(ibidir)/which-$(which-version) \
                    $(ibidir)/libtool-$(libtool-version) \
                    $(ibidir)/texinfo-$(texinfo-version) \
@@ -1164,7 +1217,7 @@ $(ibidir)/binutils-$(binutils-version): \
 #	  Build binutils with the standard 'gbuild' function.
 	  $(call gbuild, binutils-$(binutils-version), static, \
 	                 --with-lib-path=$(sys_library_path), \
-	                 -j$(numthreads) )
+	                 -j$(numthreads) V=1)
 
 #	  The 'ld' linker of Binutils needs several '*crt*.o' files from
 #	  the host's GNU C Library to run. On some systems these object
@@ -1287,20 +1340,35 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 	  current_dir=$$(pwd)
 
 #	  By default 'ddir' (where GCC is decompressed and built) is in the
-#	  RAM (on systems that support '/dev/shm'). This is done to avoid
-#	  building so many small/temporary files and possibly harming the
-#	  hard-drive or SSD. But if the RAM doesn't have enough space, we
-#	  should use the hard-drive or SSD. During its build GCC's build
-#	  directory will become about 7GB (multiple of 1024 bytes, for GCC
-#	  11.2.0). So at this step, we are making sure we have more than
-#	  7.5GiB (multiple of 1000 bytes, which corresponds to 7.32GB)
-#	  before GCC starts to build. Note that the 4th column of 'df' is
-#	  the "available" space at the time of running, not the full
-#	  space. So the background RAM that the OS will be using during
-#	  Maneage is accounted for. Also consider that GCC is built alone
-#	  (no other Maneage software is built at the same time as GCC).
-	  in_ram=$$(df $(ddir) \
-	               | awk 'NR==2{print ($$4>7500000) ? "yes" : "no"}'); \
+#	  RAM (on systems that support a '/dev/shm' RAM disk). This is done
+#	  to avoid building so many small/temporary files and possibly
+#	  harming the hard-drive or SSD. But if the RAM doesn't have enough
+#	  space, we should use the hard-drive or SSD. During its build,
+#	  GCC's build directory will become about 7GiB (in units of 1024^3
+#	  bytes, for GCC 12.1.0, which corresponds to 7.5GB, in units of
+#	  1000^3 bytes). So at this step, we make sure that we have more
+#	  than 12GiB before GCC starts to build. See the figure in the link
+#	  below for GCC's RAM consumption as a function of time:
+#
+#	  https://savannah.nongnu.org/task/?16244#comment12
+#
+#	  For POSIX portability and longevity (default sizes might change),
+#	  we use the '-P' option, and we use the environment variable
+#	  POSIXLY_CORRECT=1, so the 'block size' is 512 bytes. We'll also
+#	  allow for about ~0.5 GB at the start.
+#
+#	  So we need 8 GiB * 1024^3 (B/GiB) / 512 blocks/B = 16777216
+#	  blocks, in blocks of 512 bytes.
+#
+#	  The 4th column of 'df' is the "available" space at the time of
+#	  running, not the full space. So the 'RAM disk' that the OS
+#	  will be using as "pretend" disk space (e.g. using 'tmpfs'; this
+#	  is physically RAM, but appears as if it is disk space)
+#	  during this stage of Maneage is accounted for. GCC is built
+#	  alone - no other Maneage software is built at the same time as
+#	  GCC - so this amount of RAM should be enough.
+	  in_ram=$$(POSIXLY_CORRECT=1 df -P $(ddir) \
+	               | awk 'NR==2{print ($$4>16777216) ? "yes" : "no"}'); \
 	  if [ $$in_ram = "yes" ]; then odir=$(ddir)
 	  else
 	    odir=$(BDIR)/software/build-tmp-gcc-due-to-lack-of-space
@@ -1308,15 +1376,45 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 	    mkdir $$odir
 	  fi
 
-#	  Go into the proper directory, unpack GCC and prepare the 'build'
-#	  directory inside it for all the built files.
+#	  Go into the directory to uncompress GCC.
 	  cd $$odir
+
+#	  Unpack GCC and prepare the 'build' directory inside it for all
+#	  the built files.
 	  rm -rf gcc-$(gcc-version)
 	  tar -xf $(tdir)/$$tarball
 	  if [ $$odir != $(ddir) ]; then
 	    ln -s $$odir/gcc-$(gcc-version) $(ddir)/gcc-$(gcc-version)
 	  fi
 	  cd gcc-$(gcc-version)
+
+#	  Unfortunately binutils installs headers like 'ansidecl.h' that
+#	  have been seen to conflict with GCC's internal versions of those
+#	  headers. For example in the 'ansidecl.h' of Binutils 2.39, the
+#	  'PTR' macro isn't defined, while the same file in GCC 12.1.0 has
+#	  defined it. Therefore, without this change, GCC will include the
+#	  file installed from Binutils, not find what it needs and crash!
+#	  Therefore, with the 'CPPFLAGS' modification below, we tell GCC to
+#	  first look into its own 'include' directory before anything else.
+	  export CPPFLAGS="-I$$(pwd)/include $(CPPFLAGS)"
+
+#	  In the GNU C Library 2.36 (which is more recent than GCC 12.1.0),
+#	  the 'linux/mount.h' (loaded by 'linux/fs.h', which is loaded by
+#	  'libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cpp'
+#	  in GCC) conflicts with 'sys/mount.h' which is directly loaded by
+#	  the same file! This is a known conflict in glibc 2.36 (see
+#	  [1]). As described in [1], one solution is the final job done in
+#	  [2]. We therefore do this process here: 1) Not loading
+#	  'linux/fs.h', and adding the necessary macros directly.
+#
+#	  [1] https://sourceware.org/glibc/wiki/Release/2.36#Usage_of_.3Clinux.2Fmount.h.3E_and_.3Csys.2Fmount.h.3E
+#         [2] https://reviews.llvm.org/D129471
+	  sed -e's|\#include <linux/fs.h>||' \
+	      -e"s|FS_IOC_GETFLAGS;|_IOR('f', 1, long);|" \
+	      -e"s|FS_IOC_GETVERSION;|_IOR('v', 1, long);|" \
+	      -e"s|FS_IOC_SETFLAGS;|_IOW('f', 2, long);|" \
+	      -e"s|FS_IOC_SETVERSION;|_IOW('v', 2, long);|" \
+	      -i libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cpp
 
 #	  Set the build directory for the processing.
 	  mkdir build
@@ -1396,6 +1494,25 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 
 
 
+# Software that need re-compilation (to use our own libraries)
+$(ibidir)/lzip-$(lzip-version): $(ibidir)/gcc-$(gcc-version)
+	tarball=lzip-$(lzip-version).tar
+	unpackdir=lzip-$(lzip-version)
+	cd $(ddir)
+	rm -rf $$unpackdir
+	tar -xf $(tdir)/$$tarball
+	cd $$unpackdir
+	./configure --build --check --installdir="$(ibdir)"
+	if [ -f $(ibdir)/patchelf ]; then
+	  $(ibdir)/patchelf --set-rpath $(ildir) $(ibdir)/lzip;
+	fi
+	cd ..
+	rm -rf $$unpackdir
+	echo "Lzip $(lzip-version)" > $@
+
+
+
+
 
 
 
@@ -1418,7 +1535,7 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 # nano (and use their own optional high-level text editor). To do this, you
 # can just have to manually remove 'nano' from 'targets-proglib' above and
 # add their optional text editor in 'TARGETS.conf'.
-$(ibidir)/nano-$(nano-version): $(ibidir)/gcc-$(gcc-version)
+$(ibidir)/nano-$(nano-version): $(ibidir)/lzip-$(lzip-version)
 	tarball=nano-$(nano-version).tar.lz
 	$(call import-source, $(nano-url), $(nano-checksum))
 	$(call gbuild, nano-$(nano-version), static)

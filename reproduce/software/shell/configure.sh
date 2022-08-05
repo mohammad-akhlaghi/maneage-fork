@@ -446,7 +446,9 @@ if ! [ -d $compilertestdir ]; then mkdir $compilertestdir; fi
 #    also harmless for our test here, so it is generally added.
 testprog=$compilertestdir/test
 testsource=$compilertestdir/test.c
-noccwarnings="-Wno-nullability-completeness"
+if [ x$on_mac_os = xyes ]; then
+    noccwarnings="-Wno-nullability-completeness"
+fi
 echo; echo; echo "Checking host C compiler ('$CC')...";
 cat > $testsource <<EOF
 #include <stdio.h>

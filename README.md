@@ -188,6 +188,56 @@ analysis and finally create the final paper).
 
 
 
+
+
+
+
+
+### Building on older systems (+10 year old compilers)
+
+Maneage builds almost all its software itself. But to do that, it needs a C
+and C++ compiler on the host. The C++ standard in particular is updated
+regularly. Therefore, gradually the basic software packages (that are used
+to build the internal Maneage C compiler and other necessary tools) will
+start using the newer language features in their newer versions. As a
+result, if a host doesn't update its compiler for more than a decade, some
+of the basic software may not get built.
+
+Note that this is only a problem for the "basic" software of Maneage (that
+are used to build Maneage's own C compiler), not the high-level (or
+science) software. On GNU/Linux systems, the high-level software get built
+with Maneage's own C compiler. Therefore once Maneage's C compiler is
+built, you don't need to worry about the versions of the high-level
+software.
+
+One solution to such cases is to downgrade the versions of the basic
+software that can't be built. For example, when building Maneage in August
+2022 on a old Debian GNU/Linux system from 2010 (with GCC 4.4.5 and GNU C
+Library 2.11.3 and Linux kernel 2.6.32-5 on an amd64 architecture), the
+following low-level packages needed to be downgraded to slightly earlier
+versions.
+
+| Program name                  | 2022-08 version | Version for old system |
+|:------------------------------|:---------------:|:----------------------:|
+| PatchELF                      |       0.13      |        0.9             |
+| GNU Binutils                  |       2.39      |        2.37            |
+| GNU Compiler Collection (GCC) |      12.1.0     |       10.2.0           |
+
+As you can see above, fortunately most basic software in Maneage respect
++10 year old compilers and are build-able there. So your higher-level
+science software should be buildable with out changing their versions. It
+is _highly unprobable_ that these downgrades will affect your final science
+result.
+
+
+
+
+
+
+
+
+
+
 ### Building on ARM
 
 As of 2021-10-13, very little testing of Maneage has been done on arm64
@@ -232,6 +282,11 @@ On the PinePhone v1.2b, apart from the time wasted by vampires, expect
 roughly 24 hours' wall time in total for the full 'configure' phase. The
 default 'maneage' example calculations, diagrams and pdf production are
 light and should be very fast.
+
+
+
+
+
 
 
 
@@ -534,7 +589,12 @@ steps.
      following contents. Just replace `UID` with your user ID (found in
      step 1 above). Note that we are manually setting the `maneager` (user)
      password to `123` and the root password to '456' (both should be
-     repeated because they must be confirmed by `passwd`).
+     repeated because they must be confirmed by `passwd`). To install other
+     operating systems, just change the contents on the `FROM` line. For
+     example, for CentOS 7 you can use `FROM centos:centos7`, for the
+     latest CentOS, you can use `FROM centos:latest` (you may need to add
+     this line `RUN yum install -y passwd` before the `RUN useradd ...`
+     line.).
 
      ```
      FROM debian:stable-slim
@@ -658,7 +718,11 @@ steps.
      versions of both and will use them. But for the very first packages,
      they are necessary. In the process, by setting the `PS1` environment
      variable, we'll define a color-coding for the interactive shell prompt
-     (red for root and purple for the user).
+     (red for root and purple for the user). If you build another operating
+     system, replace the `apt` commands accordingly (for example on CentOS,
+     you don't need the `apt update` line and you should use `yum install
+     -y gcc gcc-c++ wget glibc-static` to install the three basic
+     dependencies).
 
      ```shell
      su

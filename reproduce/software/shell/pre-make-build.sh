@@ -230,7 +230,7 @@ build_program() {
 # (without compression it is just ~400Kb). So we use its '.tar' file and
 # won't rely on the host's compression tools at all.
 progname="lzip"
-progname_tex="Lzip"
+progname_tex="" # Lzip re-built after GCC (empty string to avoid repetition)
 url=$(awk '/^'$progname'-url/{print $3}' $urlfile)
 version=$(awk '/^'$progname'-version/{print $3}' "$versionsfile")
 tarball=$progname-$version.tar

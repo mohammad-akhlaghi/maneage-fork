@@ -49,6 +49,7 @@ ddir    = $(BDIR)/software/build-tmp
 idir    = $(BDIR)/software/installed
 ibdir   = $(BDIR)/software/installed/bin
 ildir   = $(BDIR)/software/installed/lib
+iidir   = $(BDIR)/software/installed/include
 ibidir  = $(BDIR)/software/installed/version-info/proglib
 
 # Basic directories (specific to this Makefile).
@@ -147,7 +148,6 @@ export SHELL := $(ibdir)/bash
 .SHELLFLAGS := --noprofile --norc -ec
 export LDFLAGS := $(rpath_command) -L$(ildir)
 export PKG_CONFIG_LIBDIR := $(ildir)/pkgconfig
-export CPPFLAGS := -I$(idir)/include -Wno-nullability-completeness
 export PKG_CONFIG_PATH := $(ildir)/pkgconfig:$(idir)/share/pkgconfig
 
 # Disable built-in rules (which are not needed here!)
@@ -159,6 +159,13 @@ export CXX := $(ibdir)/g++
 export F77 := $(ibdir)/gfortran
 export LD_RUN_PATH := $(ildir):$(il64dir)
 export LD_LIBRARY_PATH := $(ildir):$(il64dir)
+
+# See description of '-Wno-nullability-completeness' in
+# 'reproduce/software/shell/configure.sh'.
+ifeq ($(on_mac_os),yes)
+  noccwarnings=-Wno-nullability-completeness
+endif
+export CPPFLAGS := -I$(idir)/include $(noccwarnings)
 
 # In macOS, if a directory exists in both 'C_INCLUDE_PATH' and 'CPPFLAGS'
 # it will be ignored in 'CPPFLAGS' (which has higher precedence). So, we
@@ -429,6 +436,7 @@ $(ibidir)/cfitsio-$(cfitsio-version):
 	echo "CFITSIO $(cfitsio-version)" > $@
 
 $(ibidir)/cairo-$(cairo-version): \
+                $(ibidir)/libxt-$(libxt-version) \
                 $(ibidir)/pixman-$(pixman-version) \
                 $(ibidir)/libpng-$(libpng-version) \
                 $(ibidir)/freetype-$(freetype-version)
@@ -448,7 +456,8 @@ $(ibidir)/eigen-$(eigen-version):
 	topdir=$(pwd); cd $(ddir); tar -xf $(tdir)/$$tarball
 	cd eigen-$(eigen-version)
 	if ! [ -d $(iidir)/eigen3 ]; then mkdir $(iidir)/eigen3; fi
-	cp -r Eigen/* $(iidir)/eigen3/
+	cp -r Eigen/* $(iidir)/eigen3/         # Some expect 'eigen3'.
+	ln -s $(iidir)/eigen3 $(iidir)/Eigen   # Others expect 'Eigen'.
 	cd $$topdir
 	rm -rf $(ddir)/eigen-$(eigen-version)
 	echo "Eigen $(eigen-version)" > $@
@@ -529,7 +538,7 @@ $(ibidir)/gsl-$(gsl-version):
 $(ibidir)/hdf5-$(hdf5-version): $(ibidir)/openmpi-$(openmpi-version)
 	export CC=mpicc
 	export FC=mpif90
-	tarball=hdf5-$(hdf5-version).tar.gz
+	tarball=hdf5-$(hdf5-version).tar.lz
 	$(call import-source, $(hdf5-url), $(hdf5-checksum))
 	$(call gbuild, hdf5-$(hdf5-version), static, \
 	               --enable-parallel \
@@ -919,8 +928,8 @@ $(ibidir)/wcslib-$(wcslib-version): $(ibidir)/cfitsio-$(cfitsio-version)
                        --with-cfitsioinc=$(idir)/include \
                        --without-pgplot $$fortranopt)
 	if [ x$(on_mac_os) = xyes ]; then
-	  install_name_tool -id $(ildir)/libwcs.7.7.dylib \
-	                        $(ildir)/libwcs.7.7.dylib
+	  install_name_tool -id $(ildir)/libwcs.7.11.dylib \
+	                        $(ildir)/libwcs.7.11.dylib
 	fi
 	echo "WCSLIB $(wcslib-version)" > $@
 
@@ -938,14 +947,42 @@ $(ibidir)/wcslib-$(wcslib-version): $(ibidir)/cfitsio-$(cfitsio-version)
 #
 # Astrometry-net contains a lot of programs. We need to specify the
 # installation directory and the Python executable (by default it will look
-# for /usr/bin/python)
+# for /usr/bin/python).
+#
+# An optional dependency is 'netpbm' but it has many dependencies and a
+# crazy build system. So, it is not in the default preprequisites. If you
+# need it you can add it as a prerequisite and pray that it will work.
+#
+# A consequence of not having 'netpbm' is that for obtaining the
+# astrometric solution of one image using 'solve-field', it is necessary to
+# build a catalog of sources with image coordinates and flux (x,y,flux) in
+# advance. The catalog has to be sorted by flux. Finally, when invoking
+# 'solve-field', the width and heigh of the original image have to be
+# provided.
+#
+# More explicitly, raw basic steps using Gnuastro:
+#
+# - Obtain a catalog with image coordinates and flux (x,y,brightness):
+#   $ astnoisechisel img.fits -o det.fits
+#   $ astsegment det.fits -o seg.fits
+#   $ astmkcatalog seg.fits --clumpscat --x --y --brightness -o cat-raw.fits
+#
+# - Sort by flux:
+#   $ asttable cat-raw.fits --hdu 2 --sort brightness --descending \
+#              --output cat.fits
+#
+# - Get the x-size and y-size from the header:
+#   $ xsize=$(astfits img.fits --keyvalue NAXIS1 --quiet)
+#   $ ysize=$(astfits img.fits --keyvalue NAXIS2 --quiet)
+#
+# - Run 'solve-field' to obtain the astrometric solution:
+#   $ solve-field cat.fits --width $xsize --height $ysize [--other-parameters]
 $(ibidir)/astrometrynet-$(astrometrynet-version): \
                         $(ibidir)/gsl-$(gsl-version) \
                         $(ibidir)/swig-$(swig-version) \
                         $(ipydir)/numpy-$(numpy-version) \
                         $(ibidir)/cairo-$(cairo-version) \
                         $(ibidir)/libpng-$(libpng-version) \
-                        $(ibidir)/netpbm-$(netpbm-version) \
                         $(ibidir)/wcslib-$(wcslib-version) \
                         $(ipydir)/astropy-$(astropy-version) \
                         $(ibidir)/cfitsio-$(cfitsio-version) \
@@ -986,12 +1023,6 @@ $(ibidir)/automake-$(automake-version): $(ibidir)/autoconf-$(autoconf-version)
 	$(call import-source, $(automake-url), $(automake-checksum))
 	$(call gbuild, automake-$(automake-version), static, ,V=1)
 	echo "GNU Automake $(automake-version)" > $@
-
-$(ibidir)/bison-$(bison-version): $(ibidir)/help2man-$(help2man-version)
-	tarball=bison-$(bison-version).tar.lz
-	$(call import-source, $(bison-url), $(bison-checksum))
-	$(call gbuild, bison-$(bison-version), static, ,V=1 -j$(numthreads))
-	echo "GNU Bison $(bison-version)" > $@
 
 # cdsclient is a set of software written in c to interact with astronomical
 # database servers. It is a dependency of 'scamp' to be able to download
@@ -1049,7 +1080,11 @@ $(ibidir)/cmake-$(cmake-version):
 $(ibidir)/flex-$(flex-version): $(ibidir)/bison-$(bison-version)
 	tarball=flex-$(flex-version).tar.lz
 	$(call import-source, $(flex-url), $(flex-checksum))
-	$(call gbuild, flex-$(flex-version), static, ,V=1 -j$(numthreads))
+	$(call gbuild, flex-$(flex-version), static, \
+	       --with-libiconv-prefix=$(idir) \
+	       --with-libintl-prefix=$(idir) \
+	       --disable-dependency-tracking, \
+	       V=1 -j$(numthreads))
 	echo "Flex $(flex-version)" > $@
 
 $(ibidir)/gdb-$(gdb-version): $(ibidir)/python-$(python-version)
@@ -1128,13 +1163,7 @@ $(ibidir)/gnuastro-$(gnuastro-version): \
 	$(call gbuild, gnuastro-$(gnuastro-version), static, , \
 	               -j$(numthreads))
 	cp $(dtexdir)/gnuastro.tex $(ictdir)/
-	echo "GNU Astronomy Utilities $(gnuastro-version) \citep{gnuastro}" > $@
-
-$(ibidir)/help2man-$(help2man-version):
-	tarball=help2man-$(help2man-version).tar.lz
-	$(call import-source, $(help2man-url), $(help2man-checksum))
-	$(call gbuild, help2man-$(help2man-version), static, ,V=1)
-	echo "Help2man $(Help2man-version)" > $@
+	echo "GNU Astronomy Utilities $(gnuastro-version) \citep{gnuastro,akhlaghi19}" > $@
 
 $(ibidir)/icu-$(icu-version): $(ibidir)/python-$(python-version)
 
@@ -1168,8 +1197,25 @@ $(ibidir)/imagemagick-$(imagemagick-version): \
 	tarball=ImageMagick-$(imagemagick-version).tar.lz
 	$(call import-source, $(imagemagick-url), $(imagemagick-checksum))
 	$(call gbuild, ImageMagick-$(imagemagick-version), static, \
-	               --with-gslib --without-x --disable-openmp, \
+	               --without-x \
+	               --with-gslib \
+	               --disable-openmp \
+	               --with-libstdc=$(ildir), \
 	               V=1 -j$(numthreads))
+
+#	On macOS, an executable and several libraries are not properly
+#	linked with the Ghostscript library (libgs), so we need to fix it
+#	manually.
+	if [ x$(on_mac_os) = xyes ]; then
+	  gsversion=$$(echo $(ghostscript-version) \
+	                    | awk -F'.' '{print $$1"."$$2}')
+	  libMagicks=$$(ls -l $(ildir)/libMagick*.dylib  \
+	                   | awk '/^-/{print $$NF}')
+	  libMagicks_all="$(ibdir)/magick $$libMagicks"
+	  for f in $$libMagicks_all; do \
+	      install_name_tool -change libgs.dylib.$$gsversion \
+	      $(ildir)/libgs.dylib.$$gsversion $$f; done
+	fi
 	echo "ImageMagick $(imagemagick-version)" > $@
 
 # 'imfit' doesn't use the traditional 'configure' and 'make' to install
@@ -1281,12 +1327,12 @@ $(ibidir)/missfits-$(missfits-version):
 	cp $(dtexdir)/missfits.tex $(ictdir)/
 	echo "MissFITS $(missfits-version) \citep{missfits}" > $@
 
-# Netpbm is a prerequisite of Astrometry-net, it contains a lot of programs.
-# This program has a crazy dialogue installation which is override using the
-# printf statment. Each '\n' is a new question that the installation process
-# ask to the user. We give all answers with a pipe to the scripts (configure
-# and install). The questions are different depending on the system (tested
-# on GNU/Linux and Mac OS).
+# Netpbm is an optional prerequisite of Astrometry-net, it contains a lot
+# of programs.  This program has a crazy dialogue installation which is
+# override using the printf statment. Each '\n' is a new question that the
+# installation process ask to the user. We give all answers with a pipe to
+# the scripts (configure and install). The questions are different
+# depending on the system (tested on GNU/Linux and Mac OS).
 $(ibidir)/netpbm-$(netpbm-version): \
                  $(ibidir)/flex-$(flex-version) \
                  $(ibidir)/libpng-$(libpng-version) \
@@ -1352,15 +1398,43 @@ $(ibidir)/pcre-$(pcre-version):
 	               , V=1 -j$(numthreads))
 	echo "Perl Compatible Regular Expressions $(pcre-version)" > $@
 
-# 2022-01-01 The rules for building R - identified as r-cran to avoid the
-# difficulties in searching text for a one-letter string - were shifted to
-# 'r-cran.mk'.
+# On macOS 12.3 Monterey with AppleClang 13.1.6.13160021, Plplot 5.15.0
+# needs the 'finite' function of 'math.h' which has been deprecated in
+# macOS. By manually adding "#define finite isfinite" in 'math.h' like
+# below, we fixed this problem but still it can't find 'exit' during the
+# configuration phase so we stopped trying to port it to macOS. It means
+# that on macOS Plplot is not available. For other OSs it should be fine.
+# On macOS, the file 'tmath.h' can be found with 'xcrun --show-sdk-path'.
+#
+#	cp /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/math.h \
+#	   $(iidir)/math.h
+#	awk '{if($$0 ~ /#define isinf\(x\)/) {print "#define finite isfinite"; print $$0} else print $$0 }' \
+#            $(iidir)/math.h > $(iidir)/math-tmp.h
+#	mv $(iidir)/math-tmp.h $(iidir)/math.h
+$(ibidir)/plplot-$(plplot-version): \
+          $(ibidir)/cairo-$(cairo-version) \
+          $(ibidir)/freetype-$(freetype-version)
+	tarball=plplot-$(plplot-version).tar.lz
+	$(call import-source, $(plplot-url), $(plplot-checksum))
+	$(call cbuild, plplot-$(plplot-version), static, \
+                       -DDEFAULT_NO_BINDINGS:BOOL=ON \
+                       -DENABLE_cxx:BOOL=ON \
+	               -DENABLE_fortran:BOOL=ON \
+	               -DDEFAULT_NO_QT_DEVICES:BOOL=ON)
+	echo "PLplot $(pcre-version)" > $@
 
 # SCAMP documentation says ATLAS is a mandatory prerequisite for using
 # SCAMP. We have ATLAS into the project but there are some problems with the
 # libraries that are not yet solved. However, we tried to install it with
 # the option --enable-openblas and it worked (same issue happened with
 # 'sextractor'.
+#
+# Plplot in SCAMP cannot be built for macOS. See comments on top of Plplot.
+# But if you are not using macOS and want to enable plots, follow the
+# steps below:
+#
+#  1. Add '$(ibidir)/plplot-$(plplot-version)' to the prerequisites
+#  2. Remove the option '--enable-plplot=no' from the call of 'gbuild'
 $(ibidir)/scamp-$(scamp-version): \
                 $(ibidir)/fftw-$(fftw-version) \
                 $(ibidir)/openblas-$(openblas-version) \
@@ -1430,32 +1504,56 @@ $(ibidir)/scons-$(scons-version): $(ibidir)/python-$(python-version)
 	echo "SCons $(scons-version)" > $@
 
 # Sextractor crashes complaining about not linking with some ATLAS
-# libraries. But we can override this issue since we have Openblas
+# libraries. But we can override this issue since we have OpenBLAS
 # installed, it is just necessary to explicity tell sextractor to use it in
 # the configuration step.
-#
-# The '-fcommon' is a necessary C compilation flag for GCC 10 and above. It
-# is necessary for astromatic libraries, otherwise their build will crash.
 $(ibidir)/sextractor-$(sextractor-version): \
                      $(ibidir)/fftw-$(fftw-version) \
                      $(ibidir)/openblas-$(openblas-version)
+#	Import the source.
 	tarball=sextractor-$(sextractor-version).tar.lz
 	$(call import-source, $(sextractor-url), $(sextractor-checksum))
 
+#	Unpack the tarball and enter the directory.
+	unpackdir=sextractor-$(sextractor-version)
+	cd $(ddir)
+	rm -rf $$unpackdir
+	tar -xf $(tdir)/$$tarball
+	cd $$unpackdir
+
 #	See comment above 'missfits' for '-fcommon'.
-	$(call gbuild, sextractor-$(sextractor-version), static, \
-	               CFLAGS="-fcommon" \
-	               --enable-threads \
-	               --enable-openblas \
-	               --with-openblas-libdir=$(ildir) \
-	               --with-openblas-incdir=$(idir)/include)
+	./configure --prefix="$(idir)" \
+	            CFLAGS="-fcommon" \
+	            --enable-threads \
+	            --enable-openblas \
+	            --libdir=$(ildir) \
+	            --includedir=$(iidir) \
+	            --with-openblas-libdir=$(ildir) \
+	            --with-openblas-incdir=$(iidir)
+
+#	On macOS we need to manually change 'finite' to 'isfinite' in the
+#	header file 'src/levmar/compiler.h'. Until this problem is
+#	hopefully fixed in next releases, we are doing it manually using
+#	'sed'.  Consequently we are not installing it using 'gbuild'. Once
+#	this is fixed upstream, we can use the standard 'gbuild'.
+	sed -i -e's|define LM_FINITE finite |define LM_FINITE isfinite |' \
+	    src/levmar/compiler.h
+
+#	Build, install and delete the temporary files.
+	make V=1
+	make install
+	cd ..
+	rm -rf $$unpackdir
+
+#	Make links for other possibly used names, copy citation and build
+#	the final target.
 	ln -fs $(ibdir)/sex $(ibdir)/sextractor
 	ln -fs $(ibdir)/sex $(ibdir)/source-extractor
 	cp $(dtexdir)/sextractor.tex $(ictdir)/
 	echo "SExtractor $(sextractor-version) \citep{sextractor}" > $@
 
 $(ibidir)/swarp-$(swarp-version): $(ibidir)/fftw-$(fftw-version)
-	tarball=swarp-$(swarp-version).tar.gz
+	tarball=swarp-$(swarp-version).tar.lz
 	$(call import-source, $(swarp-url), $(swarp-checksum))
 
 #	See comment above 'missfits' for '-fcommon'.
@@ -1520,6 +1618,29 @@ $(ibidir)/util-linux-$(util-linux-version): | $(idircustom)
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	cd util-linux-$(util-linux-version)
+
+#       If a patch exists for the current version, apply it.
+	if [ -f $(patchdir)/util-linux-$(util-linux-version)-macos.patch ]; then
+	  cp $(patchdir)/util-linux-$(util-linux-version)-macos.patch \
+	     util-linux-$(util-linux-version)-macos.patch
+	  git apply util-linux-$(util-linux-version)-macos.patch
+	fi
+
+#       The 'mkswap' feature needs low-level file system and kernel headers
+#       that are not always available (in particular on older Linux
+#       kernels). Also, creating SWAP space will need root permissions, so
+#       its not something a Maneager may need! Unfortunately there is no
+#       configuration option to disable this so we'll have to disable it
+#       manually by commenting the relevant files in the
+#       'configure.ac'. Having a more recent 'configure.ac' will trigger
+#       the './configure' script to be re-created after the first run, but
+#       it is pretty fast and not a problem.
+	sed -e's|UL_BUILD_INIT(\[mkswap\], \[yes\])|UL_BUILD_INIT(\[mkswap\], \[no\])|' \
+	    -i configure.ac
+
+
+#	Configure Util-linux
+	export CONFIG_SHELL=$(ibdir)/bash
 	./configure --prefix=$(idircustom)/util-linux \
 	            --disable-dependency-tracking \
 	            --enable-libmount-support-mtab \
@@ -1593,12 +1714,12 @@ $(ibidir)/xlsxio-$(xlsxio-version): \
 # useful in projects during its development, for more see the comment above
 # GNU Emacs.
 $(ibidir)/vim-$(vim-version):
-	tarball=vim-$(vim-version).tar.bz2
+	tarball=vim-$(vim-version).tar.lz
 	$(call import-source, $(vim-url), $(vim-checksum))
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
-	n=$$(echo $(vim-version) | sed -e's|\.||')
-	cd $(ddir)/vim$$n
+	unpackdir=vim-$(vim-version)
+	cd $(ddir)/$$unpackdir
 	./configure --prefix=$(idir) \
 	            --disable-canberra \
 	            --enable-multibyte \
@@ -1611,8 +1732,28 @@ $(ibidir)/vim-$(vim-version):
 	make -j$(numthreads)
 	make install
 	cd ..
-	rm -rf vim$$n
+	rm -rf $$unpackdir
 	echo "VIM $(vim-version)" > $@
+
+$(ibidir)/unzip-$(unzip-version): $(ibidir)/gzip-$(gzip-version)
+	tarball=unzip-$(unzip-version).tar.lz
+	$(call import-source, $(unzip-url), $(unzip-checksum))
+	$(call gbuild, unzip-$(unzip-version), static,, \
+	               -f unix/Makefile generic \
+	               CFLAGS="-DBIG_MEM -DMMAP",,pwd, \
+	               -f unix/Makefile generic \
+	               BINDIR=$(ibdir) MANDIR=$(idir)/man/man1 )
+	echo "Unzip $(unzip-version)" > $@
+
+$(ibidir)/zip-$(zip-version): $(ibidir)/gzip-$(gzip-version)
+	tarball=zip-$(zip-version).tar.lz
+	$(call import-source, $(zip-url), $(zip-checksum))
+	$(call gbuild, zip-$(zip-version), static,, \
+	               -f unix/Makefile generic \
+	               CFLAGS="-DBIG_MEM -DMMAP",,pwd, \
+	               -f unix/Makefile generic \
+	               BINDIR=$(ibdir) MANDIR=$(idir)/man/man1 )
+	echo "Zip $(zip-version)" > $@
 
 
 

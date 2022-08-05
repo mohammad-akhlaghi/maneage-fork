@@ -172,8 +172,10 @@ $(ipydir)/astroquery-$(astroquery-version): \
 	$(call pybuild, tar -xf, astroquery-$(astroquery-version), , \
 	                Astroquery $(astroquery-version))
 
+# The optional dependency 'h5py' that is necessary for writting tables in
+# HDF5 format has been removed from Astropy because on macOS it cannot be
+# installed.
 $(ipydir)/astropy-$(astropy-version): \
-                  $(ipydir)/h5py-$(h5py-version) \
                   $(ibidir)/expat-$(expat-version) \
                   $(ipydir)/scipy-$(scipy-version) \
                   $(ipydir)/numpy-$(numpy-version) \
@@ -400,7 +402,9 @@ $(ipydir)/lmfit-$(lmfit-version): \
 	                LMFIT $(lmfit-version))
 
 $(ipydir)/lsstdesccoord-$(lsstdesccoord-version): \
-                        $(ipydir)/cython-$(cython-version)
+                        $(ipydir)/cffi-$(cffi-version) \
+                        $(ipydir)/numpy-$(numpy-version) \
+                        $(ipydir)/future-$(future-version)
 	tarball=lsstdesccoord-$(lsstdesccoord-version).tar.gz
 	$(call import-source, $(lsstdesccoord-url), $(lsstdesccoord-checksum))
 	$(call pybuild, tar -xf, LSSTDESC.Coord-$(lsstdesccoord-version), , \
@@ -455,7 +459,6 @@ $(ipydir)/mpmath-$(mpmath-version): $(ipydir)/setuptools-$(setuptools-version)
 	                mpmath $(mpmath-version))
 
 $(ipydir)/numpy-$(numpy-version): \
-                $(ibidir)/unzip-$(unzip-version) \
                 $(ipydir)/cython-$(cython-version) \
                 $(ibidir)/openblas-$(openblas-version) \
                 $(ipydir)/setuptools-$(setuptools-version)
@@ -471,7 +474,7 @@ $(ipydir)/numpy-$(numpy-version): \
 	$(call pybuild, tar -xf, numpy-$(numpy-version),$$conf, \
 	                Numpy $(numpy-version))
 	cp $(dtexdir)/numpy.tex $(ictdir)/
-	echo "Numpy $(numpy-version) \citep{numpy2011}" > $@
+	echo "Numpy $(numpy-version) \citep{numpy2020}" > $@
 
 $(ipydir)/packaging-$(packaging-version): \
                     $(ipydir)/pyparsing-$(pyparsing-version)
@@ -594,9 +597,12 @@ $(ipydir)/requests-$(requests-version): $(ipydir)/idna-$(idna-version) \
 	$(call pybuild, tar -xf, requests-$(requests-version), , \
 	                Requests $(requests-version))
 
+# 'pythran' is disabled in the build of Scipy because of complications it
+# caused on some systems. It is explicitly disabled using the environmental
+# variable. If for some reason it is needed, set the environment variable
+# to 1, and add it as a prerequisite of 'scipy'.
 $(ipydir)/scipy-$(scipy-version): \
                   $(ipydir)/numpy-$(numpy-version) \
-                  $(ipydir)/pythran-$(pythran-version) \
                   $(ipydir)/pybind11-$(pybind11-version)
 	tarball=scipy-$(scipy-version).tar.lz
 	$(call import-source, $(scipy-url), $(scipy-checksum))
@@ -605,10 +611,11 @@ $(ipydir)/scipy-$(scipy-version): \
 	else
 	  export LDFLAGS="$(LDFLAGS) -shared"
 	fi
+	export SCIPY_USE_PYTHRAN=0
 	conf="$$(pwd)/reproduce/software/config/numpy-scipy.cfg"
 	$(call pybuild, tar -xf, scipy-$(scipy-version),$$conf)
 	cp $(dtexdir)/scipy.tex $(ictdir)/
-	echo "Scipy $(scipy-version) \citep{scipy2007,scipy2011}" > $@
+	echo "Scipy $(scipy-version) \citep{scipy2020}" > $@
 
 $(ipydir)/secretstorage-$(secretstorage-version): \
                         $(ipydir)/jeepney-$(jeepney-version) \
@@ -619,7 +626,6 @@ $(ipydir)/secretstorage-$(secretstorage-version): \
 	                SecretStorage $(secretstorage-version))
 
 $(ipydir)/setuptools-$(setuptools-version): \
-                     $(ibidir)/unzip-$(unzip-version) \
                      $(ibidir)/python-$(python-version)
 	tarball=setuptools-$(setuptools-version).tar.lz
 	$(call import-source, $(setuptools-url), $(setuptools-checksum))

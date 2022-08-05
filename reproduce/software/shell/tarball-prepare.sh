@@ -154,9 +154,10 @@ fi
 # Process all files
 for f in $allfiles; do
 
-    # Seperate name and version number
-    name=$(echo $f | sed -e 's/.tar.*//' \
-               | awk 'BEGIN { FS = "[-_ ]" } {print $1 "-" $2}')
+    # Extract the name and version (while replacing any possible '_' with
+    # '-' because some software separate name and version with '_').
+    name=$(echo $(basename $f) \
+	       | sed -e 's/.tar.*//' -e's/_/-/')
 
     # Skip previously packed files
     if [ -f $odir/$name.tar.lz ]; then
@@ -202,6 +203,11 @@ for f in $allfiles; do
         mv * $name/
     fi
 
+    # Put the current date on all the files because some packagers will not
+    # add dates to their release tarballs, resulting in dates of the
+    # Unix-time zero'th second (1970-01-01 at 00:00:00)!
+    touch $(find "$name"/ -type f)
+
     # Pack with recommended options
     tar -c -Hustar --owner=root --group=root \
         -f $name.tar $name/
@@ -215,5 +221,5 @@ for f in $allfiles; do
     echo $(sha512sum $odir/$name.tar.lz)
 
     # Clean up the temporary directory
-    rm -r $tmpdir
+    rm -rf $tmpdir
 done
