@@ -15,3 +15,46 @@ DEPENDENCIES-DIR = @ddir@
 SYS_CPATH        = @sys_cpath@
 DOWNLOADER       = @downloader@
 GROUP-NAME       = @groupname@
+
+
+
+
+
+# Server authentication/identification
+# ------------------------------------
+#
+# If you need to identify yourself to the database server (when downloading
+# input files), you can write your user name and password in the two
+# variables below. When these two variables are defined, the download rule
+# (in 'reproduce/analysis/make/initialize.mk') will pass their values to
+# the '--user' and '--password' options of WGET.\
+#
+# The 'DATABASEAUTHTYPE' specifies which type of authentication is
+# recognized by the database with the 'wget' command. It can take the
+# following values:
+#   'userpass': Assumes --user='XXXX' --password='YYYY'
+#   'postdata': Assumes --post-data 'username=XXXX&password=YYYY'
+#
+# SPECIAL CHARACTERS IN PASSWORD: if your password has special characters
+# like '#' or '$' (that can have special meaning for Make), then comment
+# them with a back-slash. For example if your password is 'ab#cd', write it
+# below as 'ab\#cd'. Within 'initialize.mk', the user name and password are
+# placed inside single quotes before being used, so special characters
+# won't be problematic. However, if your password includes characters like
+# the single quote itself, this can be problematic. In this case, you can
+# temporarily (without committing!) directly enter the password in the
+# respective rule of 'initialize.mk' and after downloading, undo the change
+# (which is easy with 'git restore'). If you have any ideas on how to
+# account for such characters in a generic way, please let us know and
+# we'll suggest them here for future users.
+#
+# SECURITY WARNING: only set the values of these two variables in
+# 'LOCAL.conf' (which is _not_ under version control), _not_
+# 'LOCAL.conf.in' (which is under version control). It is also recommended
+# to remove the ID and password values from 'LOCAL.conf' immediately after
+# your downloads finish: even though 'LOCAL.conf' is not under version
+# control, it will still be on your computer, which may be accessed by
+# others or (mistakenly) shared with others.
+DATABASEUSER =
+DATABASEPASS =
+DATABASEAUTHTYPE =

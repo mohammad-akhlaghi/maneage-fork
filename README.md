@@ -226,7 +226,7 @@ versions.
 As you can see above, fortunately most basic software in Maneage respect
 +10 year old compilers and are build-able there. So your higher-level
 science software should be buildable with out changing their versions. It
-is _highly unprobable_ that these downgrades will affect your final science
+is _highly improbable_ that these downgrades will affect your final science
 result.
 
 

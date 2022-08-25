@@ -63,15 +63,18 @@ pconfdir    = reproduce/analysis/config
 # loaded.
 #
 # If your project doesn't need any preparation, you can ignore this.
+#
+# The '-' behind the include commands is used for adding the files only if
+# it is possible (they exist). This is necessary because sometimes the user
+# will have only '*.conf' or '*.mk' files, or with 'make clean' (where the
+# preparation Makefile may call initialize.mk before the main
+# 'top-make.mk'). If the '-' is not used, Make will complain about not
+# finding these files.
 ifeq (x$(project-phase),xprepare)
 $(prepdir):; mkdir $@
 else
-include $(bsdir)/preparation-done.mk
+-include $(bsdir)/preparation-done.mk
 ifeq (x$(include-prepare-results),xyes)
-# The '-' behind the include is The '-' is used for adding the files only
-# if it is possible (they exist). This is necessary because sometimes the
-# user will have only '*.conf' or '*.mk' files. So, if the '-' is not used,
-# Make will complain about not finding these files.
 -include $(prepdir)/*.mk $(prepdir)/*.conf
 endif
 endif
@@ -227,7 +230,7 @@ project-commit-hash := $(shell \
       export LD_LIBRARY_PATH="$(installdir)/lib"; \
       echo $$($(installdir)/bin/git describe --dirty --always --long); \
     else echo NOGIT; fi)
-project-package-name := maneaged-$(project-commit-hash)
+project-package-name = maneaged-$(project-commit-hash)
 project-package-contents = $(texdir)/$(project-package-name)
 
 
@@ -438,13 +441,15 @@ dist-software:
 
 
 
-# Download input data
-# --------------------
+# Import input data
+# -----------------
 #
-# 'reproduce/analysis/config/INPUTS.conf' contains the input dataset
-# properties. In most cases, you will not need to edit this rule. Simply
-# follow the instructions of 'INPUTS.conf' and set the variables names
-# according to the described standards and everything should be fine.
+# The list files to be imported (downloaded from a server, or linked from a
+# local location), are listed in 'reproduce/analysis/config/INPUTS.conf'
+# along with their URLs and verification checksums. In most cases, you will
+# not need to edit this rule. Simply follow the instructions at the top of
+# 'INPUTS.conf' and set the variables names according to the described
+# standards and everything should be fine.
 #
 # TECHNICAL NOTE on the '$(foreach, n ...)' loop of 'inputdatasets': we are
 # using several (relatively complex!) features particular to Make: In GNU
@@ -465,16 +470,60 @@ dist-software:
 # progress at every moment.
 $(indir):; mkdir $@
 downloadwrapper = $(bashdir)/download-multi-try
-inputdatasets = $(foreach i, \
-                  $(patsubst INPUT-%-sha256,%, \
-                    $(filter INPUT-%-sha256,$(.VARIABLES))), \
-                  $(indir)/$(i))
+inputdatasets := $(foreach i, \
+                   $(patsubst INPUT-%-sha256,%, \
+                     $(filter INPUT-%-sha256,$(.VARIABLES))) \
+                   $(patsubst INPUT-%-fitsdatasum,%, \
+                     $(filter INPUT-%-fitsdatasum,$(.VARIABLES))), \
+                   $(indir)/$(i))
 $(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
 
-#	Set the necessary parameters for this input file as shell variables
-#	(to help in readability).
-	url=$(INPUT-$*-url)
-	sha=$(INPUT-$*-sha256)
+#	Starting rule with '@': In case there is a username or password
+#	given for the database, we don't want the values to be printed in
+#	the terminal as the pipeline is running. We are therefore starting
+#	this recipe with an '@' (so Make doesn't print the used
+#	commands). To help the user know what is happening (in case they
+#	can't tell from the Wget outputs), we'll just start the recipe with
+#	a notice on what is being imported.
+	@echo "Importing $@"
+
+#	If a username or password has been provided, add them to the WGET
+#	command. The two variables are defined in the local configuation
+#	file 'reproduce/software/config/LOCAL.conf' that is not under
+#	version control. Different servers may use different authentication
+#	formats. If the default one doesn't work for your server, comment
+#	it and uncomment the one that works. If your serve needs a
+#	different kind of authentication format, please add it yourself. In
+#	case you need a new format, we encourage you to send the format to
+#	us using the link below:
+#	https://savannah.nongnu.org/support/?group=reproduce&func=additem
+	authopt=""
+	if [ x"$(DATABASEAUTHTYPE)" != x ]; then
+	  case "$(DATABASEAUTHTYPE)" in
+
+#	    Format: '--user=XXXX --password=YYYY'
+	    userpass)
+	      if [ x'$(DATABASEUSER)' != x ]; then
+	        authopt="--user='$(DATABASEUSER)'"; fi
+	      if [ x'$(DATABASEPASS)' != x ]; then
+	        authopt="$$authopt --password='$(DATABASEPASS)'"; fi
+	      ;;
+
+#	    Format: --post-data 'username=XXXX&password=YYYY'
+	    postdata)
+	      if [ x'$(DATABASEUSER)' != x ]; then
+	        authopt="--post-data 'username=$(DATABASEUSER)"; fi
+	      if [ x'$(DATABASEPASS)' != x ]; then
+	        authopt="$$authopt""&password=$(DATABASEPASS)'";
+	      else authopt="$$authopt'"  # To close the single quote
+	      fi
+	      ;;
+
+#	    Unrecognized format.
+	    *)
+	    echo "Maneage: 'DATABASEAUTHTYPE' format not recognized! Please see the description of this variable in 'reproduce/software/config/LOCAL.conf' for the acceptable values."; exit 1;;
+	  esac
+	fi
 
 #	Download (or make the link to) the input dataset. If the file
 #	exists in 'INDIR', it may be a symbolic link to some other place in
@@ -488,13 +537,29 @@ $(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
 	  ln -fs $$(readlink -f $(INDIR)/$*) $$unchecked
 	else
 	  touch $(lockdir)/download
-	  $(downloadwrapper) "wget --no-use-server-timestamps -O" \
-	                     $(lockdir)/download $$url $$unchecked
+	  $(downloadwrapper) "wget $$authopt --no-use-server-timestamps -O" \
+	                     $(lockdir)/download $(INPUT-$*-url) $$unchecked
 	fi
 
-#	Check the checksum to see if this is the proper dataset.
-	sum=$$(sha256sum $$unchecked | awk '{print $$1}')
-	if [ $$sum = $$sha ]; then
+#	Set the checksum related variables.
+	if [ x"$(INPUT-$*-sha256)" != x ]; then
+	  suffix=sha256
+	  sumin=$(INPUT-$*-sha256)
+	  verifname="SHA256 checksum"
+	  sum=$$(sha256sum $$unchecked | awk '{print $$1}')
+	elif [ x"$(INPUT-$*-fitsdatasum)" != x ]; then
+	  suffix=fitsdatasum
+	  sumin=$(INPUT-$*-fitsdatasum)
+	  verifname="FITS standard DATASUM"
+	  if [ x"$(INPUT-$*-fitshdu)" = x ]; then hdu=1;
+	  else                                    hdu="$(INPUT-$*-fitshdu)"; fi
+	  sum=$$(astfits $$unchecked -h$$hdu --datasum  | awk '{print $$1}')
+	else
+	  echo "$@: checksum for verifyication not recognized!"; exit 1
+	fi
+
+#	Verify the input.
+	if [ $$sum = $$sumin ]; then
 	  mv $$unchecked $@
 	  echo "Integrity confirmed, using $@ in this project."
 
@@ -502,11 +567,11 @@ $(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
 	else
 
 #	  The user has asked to update the checksum in 'INPUTS.conf'.
-	  if [ $$sha = "--auto-replace--" ]; then
+	  if [ $$sumin = "--auto-replace--" ]; then
 
 #	    Put the updated 'INPUTS.conf' in a temporary file.
 	    inputstmp=$@.inputs
-	    awk '{if($$1 == "INPUT-$*-sha256") \
+	    awk '{if($$1 == "INPUT-$*-'$$suffix'") \
 	            $$3="'$$sum'"; print}' \
 	            $(pconfdir)/INPUTS.conf > $$inputstmp
 
@@ -520,10 +585,10 @@ $(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
 #	  Error on non-matching checksums.
 	  else
 	    echo; echo;
-	    echo "Wrong SHA256 checksum for input file '$*':"
+	    echo "Wrong $$verifname for input file '$*':"
 	    echo "  File location: $$unchecked"; \
-	    echo "  Expected SHA256 checksum:   $$sha"; \
-	    echo "  Calculated SHA256 checksum: $$sum"; \
+	    echo "  Expected $$verifname:   $$sumin"; \
+	    echo "  Calculated $$verifname: $$sum"; \
 	    echo; exit 1
 	  fi
 	fi
