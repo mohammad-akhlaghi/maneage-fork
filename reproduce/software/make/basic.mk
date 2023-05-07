@@ -21,9 +21,9 @@
 #
 # ------------------------------------------------------------------------
 #
-# Copyright (C) 2018-2022 Mohammad Akhlaghi <mohammad@akhlaghi.org>
-# Copyright (C) 2019-2022 Raul Infante-Sainz <infantesainz@gmail.com>
-# Copyright (C) 2022      Pedram Ashofteh Ardakani <pedramardakani@pm.me>
+# Copyright (C) 2018-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2019-2023 Raul Infante-Sainz <infantesainz@gmail.com>
+# Copyright (C) 2022-2023 Pedram Ashofteh Ardakani <pedramardakani@pm.me>
 #
 # This Makefile is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -1073,7 +1073,7 @@ $(ibidir)/m4-$(m4-version): $(ibidir)/patchelf-$(patchelf-version)
 $(ibidir)/mpfr-$(mpfr-version): $(ibidir)/gmp-$(gmp-version)
 	tarball=mpfr-$(mpfr-version).tar.lz
 	$(call import-source, $(mpfr-url), $(mpfr-checksum))
-	$(call gbuild, mpfr-$(mpfr-version), static, , , make check)
+	$(call gbuild, mpfr-$(mpfr-version), static)
 	echo "GNU Multiple Precision Floating-Point Reliably $(mpfr-version)" > $@
 
 $(ibidir)/pkg-config-$(pkgconfig-version): $(ibidir)/patchelf-$(patchelf-version)

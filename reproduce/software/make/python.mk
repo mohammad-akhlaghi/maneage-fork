@@ -12,8 +12,8 @@
 #
 # ------------------------------------------------------------------------
 #
-# Copyright (C) 2019-2022 Raul Infante-Sainz <infantesainz@gmail.com>
-# Copyright (C) 2019-2022 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2019-2023 Raul Infante-Sainz <infantesainz@gmail.com>
+# Copyright (C) 2019-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
 #
 # This Makefile is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -285,7 +285,8 @@ $(ipydir)/entrypoints-$(entrypoints-version): \
 	                EntryPoints $(entrypoints-version))
 
 $(ipydir)/extension-helpers-$(extension-helpers-version): \
-                    $(ipydir)/setuptools-$(setuptools-version)
+                    $(ipydir)/setuptools-$(setuptools-version) \
+                    $(ipydir)/setuptools_scm-$(setuptools_scm-version)
 	tarball=extension-helpers-$(extension-helpers-version).tar.lz
 	$(call import-source, $(extension-helpers-url), $(extension-helpers-checksum))
 	$(call pybuild, tar -xf, extension-helpers-$(extension-helpers-version), , \
@@ -535,7 +536,8 @@ $(ipydir)/pycparser-$(pycparser-version): $(ipydir)/setuptools-$(setuptools-vers
 
 $(ipydir)/pyerfa-$(pyerfa-version): \
                  $(ipydir)/numpy-$(numpy-version) \
-                 $(ipydir)/packaging-$(packaging-version)
+                 $(ipydir)/packaging-$(packaging-version) \
+                 $(ipydir)/setuptools_scm-$(setuptools_scm-version)
 	tarball=pyerfa-$(pyerfa-version).tar.lz
 	$(call import-source, $(pyerfa-url), $(pyerfa-checksum))
 	$(call pybuild, tar -xf, pyerfa-$(pyerfa-version), , \

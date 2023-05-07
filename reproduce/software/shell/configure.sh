@@ -2,9 +2,9 @@
 #
 # Necessary preparations/configurations for the reproducible project.
 #
-# Copyright (C) 2018-2022 Mohammad Akhlaghi <mohammad@akhlaghi.org>
-# Copyright (C) 2021-2022 Raul Infante-Sainz <infantesainz@gmail.com>
-# Copyright (C) 2022      Pedram Ashofteh Ardakani <pedramardakani@pm.me>
+# Copyright (C) 2018-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2021-2023 Raul Infante-Sainz <infantesainz@gmail.com>
+# Copyright (C) 2022-2023 Pedram Ashofteh Ardakani <pedramardakani@pm.me>
 #
 # This script is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

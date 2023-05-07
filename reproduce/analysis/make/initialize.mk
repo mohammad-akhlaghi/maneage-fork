@@ -1,6 +1,6 @@
 # Project initialization.
 #
-# Copyright (C) 2018-2022 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2018-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
 #
 # This Makefile is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -538,7 +538,7 @@ $(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
 	else
 	  touch $(lockdir)/download
 	  $(downloadwrapper) "wget $$authopt --no-use-server-timestamps -O" \
-	                     $(lockdir)/download $(INPUT-$*-url) $$unchecked
+	                     $(lockdir)/download "$(INPUT-$*-url)" $$unchecked
 	fi
 
 #	Set the checksum related variables.
