@@ -1039,7 +1039,19 @@ $(ibidir)/gmp-$(gmp-version): \
 $(ibidir)/less-$(less-version): $(ibidir)/ncurses-$(ncurses-version)
 	tarball=less-$(less-version).tar.lz
 	$(call import-source, $(less-url), $(less-checksum))
-	$(call gbuild, less-$(less-version), static,,-j$(numthreads))
+
+#	Without the '--with-regex=posix' option, the build will depend on
+#	PCRE (perl compatible regular expressions) which are not available
+#	on some systems/compilers and can cause a crash. Maneage was
+#	successfully built with the POSIX regular expression (regex), and
+#	'less' is generally, an interactive software, not a batch-mode
+#	software (it is just added in 'basic.mk' because Git uses it to
+#	display things. Again, this is an interactive meta-operation in
+#	maneage (operations you only do when you are developing Maneage
+#	within Maneage interactively, and will not affect into the actual
+#	reproducible analysis!)
+	$(call gbuild, less-$(less-version), static, \
+	               --with-regex=posix,-j$(numthreads))
 	if [ -f $(ibdir)/patchelf ]; then
 	  $(ibdir)/patchelf --set-rpath $(ildir) $(ibdir)/less;
 	fi

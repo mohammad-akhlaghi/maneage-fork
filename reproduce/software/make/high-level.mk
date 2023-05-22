@@ -916,20 +916,27 @@ $(ibidir)/wcslib-$(wcslib-version): $(ibidir)/cfitsio-$(cfitsio-version)
 	tarball=wcslib-$(wcslib-version).tar.lz
 	$(call import-source, $(wcslib-url), $(wcslib-checksum))
 
-#	If Fortran isn't present, don't build WCSLIB with it.
-	if type gfortran &> /dev/null; then fortranopt="";
-	else fortranopt="--disable-fortran"
-	fi
-
-#	Build WCSLIB.
+#	Build WCSLIB while disabling some features:
+#	- Fortran is disabled because as of May 2023, on macOS systems
+#	  where we do not install GCC (and thus a standard 'gfortran'), the
+#	  LLVM Fortran compiler is not complete and will cause a crash. If
+#	  you use the Fortran features of WCSLIB, feel free to remove
+#	  '--disable-fortran', but be careful with portability on other
+#	  systems. Hopefully some time in the future, GCC will also be
+#	  install-able on macOS within Maneage or LLVM's 'gfortran' will
+#	  also be complete and will not cause a crash.
+#	- PGPLOT is disabled because it has many manual steps in its
+#	  installation. Therefore, we currently do not build PGPlots in
+#	  Maneage. Once (if) it is added, we can remove '--without-pgplot'.
 	$(call gbuild, wcslib-$(wcslib-version), , \
 	               LIBS="-pthread -lcurl -lm" \
+	               --without-pgplot \
+	               --disable-fortran \
                        --with-cfitsiolib=$(ildir) \
-                       --with-cfitsioinc=$(idir)/include \
-                       --without-pgplot $$fortranopt)
+                       --with-cfitsioinc=$(idir)/include)
 	if [ x$(on_mac_os) = xyes ]; then
-	  install_name_tool -id $(ildir)/libwcs.7.11.dylib \
-	                        $(ildir)/libwcs.7.11.dylib
+	  install_name_tool -id $(ildir)/libwcs.$(wcslib-version).dylib \
+	                        $(ildir)/libwcs.$(wcslib-version).dylib
 	fi
 	echo "WCSLIB $(wcslib-version)" > $@
 
