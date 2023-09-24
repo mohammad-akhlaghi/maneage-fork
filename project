@@ -96,6 +96,7 @@ Project 'make' special features.
   ./project make dist      Produce a LaTeX-ready-to-build distribution tarball
                            ('tar.gz') of the project. This is ready to be
                            uploaded to servers like 'arXiv.org'.
+  ./project make dist-singledir-onlypaper: in the build/analysis directory.
   ./project make dist-lzip Similar to 'dist', but compress to '.tar.lz'.
   ./project make dist-zip  Similar to 'dist', but compress to '.zip'.
   ./project make dist-software  Build a .tar.gz tarball containing all

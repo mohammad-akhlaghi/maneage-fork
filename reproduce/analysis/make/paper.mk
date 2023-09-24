@@ -122,6 +122,15 @@ $(texbdir)/paper.bbl: tex/src/references.tex $(mtexdir)/dependencies-bib.tex \
 #	  will be built anyway once this rule is done.
 	  rm -f $@
 
+#	  Link the AASTeX LaTex and bibliography style here.
+	  ln -sf $$p/tex/src/aastex631.cls ./
+	  ln -sf $$p/tex/src/aasjournal.bst ./
+
+#	  Fill the 'references.bib' (in Maneage, the software dependencies
+#	  are in 'tex/build/macros/dependencies-bib.tex'
+	  cat $$p/tex/src/references.tex \
+	      $$p/tex/build/macros/dependencies-bib.tex > references.bib
+
 #	  The pdflatex option '-shell-escape' is "normally disallowed for
 #	  security reasons" according to the 'info pdflatex' manual, but is
 #	  enabled here in order to allow the use of PGFPlots. If you do not
@@ -129,8 +138,8 @@ $(texbdir)/paper.bbl: tex/src/references.tex $(mtexdir)/dependencies-bib.tex \
 #	  for better security. See https://savannah.nongnu.org/task/?15694
 #	  for details.
 	  pdflatex -shell-escape -halt-on-error "$$p"/paper.tex
-	  biber paper
-
+	  bibtex paper
+	  pdflatex -shell-escape -halt-on-error "$$p"/paper.tex
 	fi
 
 

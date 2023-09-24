@@ -49,7 +49,9 @@ installdir  = $(bsdir)/installed
 bashdir     = reproduce/analysis/bash
 pconfdir    = reproduce/analysis/config
 
-
+# Project-specific directories.
+figdir      = $(texdir)/figures
+$(figdir):; mkdir $@
 
 
 
@@ -248,7 +250,8 @@ project-package-contents = $(texdir)/$(project-package-name)
 # the project version which may change between two separate runs, even when
 # no file actually differs.
 .PHONY: all clean dist dist-zip dist-lzip texclean distclean \
-        $(project-package-contents) $(mtexdir)/initialize.tex
+        $(project-package-contents) $(mtexdir)/initialize.tex \
+        dist-singledir-onlypaper
 
 texclean:
 	rm -f *.pdf
@@ -313,7 +316,8 @@ $(project-package-contents): paper.pdf | $(texdir)
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   "paper.bbl: tex/src/references.tex"               >> $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
-	printf "\tbiber paper\n"                                 >> $$m
+	printf "\tbibtex paper\n"                                >> $$m
+	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   ".PHONY: clean"                                   >> $$m
 	echo   "clean:"                                          >> $$m
 	printf "\trm -f *.aux *.auxlock *.bbl *.bcf\n"           >> $$m
@@ -367,21 +371,9 @@ $(project-package-contents): paper.pdf | $(texdir)
 	  cp tex/tikz/*.pdf $$dir/tex/tikz
 	fi
 
-#	When submitting to places like arXiv, they will just run LaTeX once
-#	and won't run 'biber'. So we need to also keep the '.bbl' file into
-#	the distributing tarball. However, BibLaTeX is particularly
-#	sensitive to versioning (a '.bbl' file has to be read by the same
-#	BibLaTeX version that created it). This is hard to do with
-#	non-up-to-date places like arXiv. Therefore, we thus just copy the
-#	whole of BibLaTeX's source (the version we are using) into the top
-#	tarball directory. In this way, arXiv's LaTeX engine will use the
-#	same BibLaTeX version to interpret the '.bbl' file. TIP: you can
-#	use the same strategy for other LaTeX packages that may cause
-#	problems on the arXiv server.
+#	The 'bbl' file is produced by BibTeX; and having it allows the user
+#	of the tarball to not have to re-create the bibliography.
 	cp tex/build/build/paper.bbl $$dir/
-	tltopdir=.local/texlive/maneage/texmf-dist/tex/latex
-	find $$tltopdir/biblatex/ -maxdepth 1 -type f -print0 \
-	     | xargs -0 cp -t $$dir
 
 #	Just in case the package users want to rebuild some of the figures
 #	(manually un-comment the 'makepdf' command we commented above),
@@ -393,7 +385,7 @@ $(project-package-contents): paper.pdf | $(texdir)
 #	PROJECT SPECIFIC
 #	----------------
 #	Put any project-specific distribution steps here.
-
+	cp tex/src/aasjournal.bst tex/src/aastex631.cls $$dir/
 #	----------------
 
 #	Clean temporary files that may have been created by text editors.
@@ -436,6 +428,42 @@ dist-software:
 	rm -rf $$dirname
 	cd $(curdir)
 	mv $(bsdir)/$$dirname.tar.gz ./
+
+# Build a distribution directory with all the files in a single directory.
+dist-singledir-onlypaper:
+
+#	Set the output directory and if it exists delete it (so we can
+#	start with a clean directory).
+	outdir=$(badir)/dist-single-directory
+	if [ -d $$outdir ]; then rm -r $$outdir; fi
+	mkdir $$outdir
+
+#	Copy all the necessary files into the output directory.
+	cp paper.tex \
+	   tex/tikz/*.pdf \
+	   tex/src/aastex631.cls \
+	   tex/build/build/paper.bbl \
+	   tex/build/macros/project.tex \
+	   tex/src/preamble-maneage.tex \
+	   tex/src/preamble-project.tex \
+	   tex/src/preamble-pgfplots.tex \
+	   $$outdir/
+
+#	Copy all the macros from 'project.tex' into the output directory.
+	macros=$$(sed -e's|\\input{||' -e's|}||' \
+	              tex/build/macros/project.tex)
+	for m in $$macros; do cp $$m $$outdir/; done
+
+#	Correct the contents of the files.
+	sed -i -e's|\\newcommand{\\makepdf}{}|%\\newcommand{\\makepdf}{}|' \
+	       -e's|tex/src/preamble-maneage.tex|preamble-maneage.tex|' \
+	       -e's|tex/src/preamble-project.tex|preamble-project.tex|' \
+	       -e's|tex/build/macros/project.tex|project.tex|' \
+	       $$outdir/paper.tex
+	sed -i -e's|tex/src/preamble-pgfplots.tex|preamble-pgfplots.tex|' \
+	       $$outdir/preamble-project.tex
+	sed -i -e's|tex/build/macros/||' $$outdir/project.tex
+	sed -i -e's|tex/tikz/||' $$outdir/preamble-pgfplots.tex
 
 
 
@@ -685,6 +713,10 @@ $(mtexdir)/initialize.tex: | $(mtexdir)
 	echo "\newcommand{\projectgitrepo}{$(metadata-git-repository)}" >> $@
 	echo "\newcommand{\projectcopyrightowner}{$(metadata-copyright-owner)}" >> $@
 
+#	Gnuastro's version
+	v=$$(asttable --version | awk 'NR==1{print $$NF}')
+	echo "\newcommand{\gnuastroversion}{$$v}" >> $@
+
 #	Calculate the latest Maneage commit used to build this project:
 #	  - The project may not have the 'maneage' branch (for example
 #	    after cloning from a fork that didn't include it!). In this
@@ -714,11 +746,3 @@ $(mtexdir)/initialize.tex: | $(mtexdir)
 	fi
 	echo "\newcommand{\maneagedate}{$$d}" >> $@
 	echo "\newcommand{\maneageversion}{$$v}" >> $@
-
-#	----------------- delete the lines below this -------------------
-#	These lines are only intended for the default template's output, to
-#	demonstrate that is it important to put links in the PDF (for
-#	showing where your input data came from). Remove these lines as
-#	part of the initial customization of Maneage for your project.
-	echo "\\newcommand{\\wfpctwourl}{$(INPUT-wfpc2.fits-url)}" >> $@
-#	----------------- delete the lines above this -------------------

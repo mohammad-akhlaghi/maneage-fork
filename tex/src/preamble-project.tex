@@ -33,35 +33,13 @@
 %% For loading images into the output (with '\includegraphics').
 \usepackage{graphicx}
 
-%% Ordering correction between 'figure' and 'figure*' ('figure*' is
-%% commonly used in two-column documents, where the figure should span both
-%% columns).
-\usepackage{fixltx2e}
-
 %% Color management.
 \usepackage{xcolor}
 \color{black} % Color of main text.
 \definecolor{DarkBlue}{RGB}{0,0,90}
 
-%% Caption management: The 'setspace' package defines the 'stretch'
-%% variable. 'abovecaptionskip' is the distance between the figure and the
-%% caption. You can use 'captionof{figure}{...}' to use these custom
-%% 'figure' caption that is defined here.
-\usepackage{setspace, caption}
-\captionsetup{font=footnotesize, labelfont={color=DarkBlue,bf}, skip=1pt}
-\captionsetup[figure]{font={stretch=1, small}}
-\setlength{\abovecaptionskip}{3pt plus 1pt minus 1pt}
-\setlength{\belowcaptionskip}{-1.25em}
-
 %% Manage links in the produced paper (for example their colors), and
 %% include document information in the "Properties" of the PDF.
-\usepackage[
-  colorlinks,
-  urlcolor=blue,
-  citecolor=blue,
-  linkcolor=blue,
-  linktocpage]{hyperref}
-\renewcommand\UrlFont{\rmfamily}
 \hypersetup{
     pdftitle={\projecttitle},
     pdfauthor={\projectcopyrightowner},
@@ -73,8 +51,8 @@
 
 
 
-%% BibLaTeX or PGFPlots templates
-%% ------------------------------
+%% PGFPlots templates
+%% ------------------
 %
 %% These are ready-made customizations of these two commonly used packages
 %% that you can use as a template for your own project: BibLaTeX (advanced
@@ -82,18 +60,12 @@
 %% directly from tables of data). If you don't use them, you can just
 %% delete these two lines and also delete their files from your branch (to
 %% keep the 'tex/src' directory on your branch clean).
-\input{tex/src/preamble-biblatex.tex}
 \input{tex/src/preamble-pgfplots.tex}
 
 
 
 
 
-%% Style of default paper (DELETE IF USING JOURNAL STYLES)
-%% -------------------------------------------------------
-%
-%% This is primarily defined for the default Maneage paper style. So when
-%% you later import your journal's style, delete this line (and these
-%% comments). Also delete the file (to keep your project source branch
-%% clean from files you don't need/use).
-\input{tex/src/preamble-maneage-default-style.tex}
+%% AASTeX settings
+\shorttitle{\projecttitle}
+\shortauthors{Akhlaghi, M}
