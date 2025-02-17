@@ -21,9 +21,9 @@
 #
 # ------------------------------------------------------------------------
 #
-# Copyright (C) 2018-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
-# Copyright (C) 2019-2023 Raul Infante-Sainz <infantesainz@gmail.com>
-# Copyright (C) 2022-2023 Pedram Ashofteh Ardakani <pedramardakani@pm.me>
+# Copyright (C) 2018-2025 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2019-2025 Raul Infante-Sainz <infantesainz@gmail.com>
+# Copyright (C) 2022-2025 Pedram Ashofteh Ardakani <pedramardakani@pm.me>
 #
 # This Makefile is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -49,14 +49,15 @@ include reproduce/software/config/checksums.conf
 include reproduce/software/config/urls.conf
 
 # Basic directories
-lockdir = $(BDIR)/software/locks
-tdir    = $(BDIR)/software/tarballs
-ddir    = $(BDIR)/software/build-tmp
-idir    = $(BDIR)/software/installed
-ibdir   = $(BDIR)/software/installed/bin
-ildir   = $(BDIR)/software/installed/lib
-iidir   = $(BDIR)/software/installed/include
-ibidir  = $(BDIR)/software/installed/version-info/proglib
+lockdir  = $(BDIR)/software/locks
+tdir     = $(BDIR)/software/tarballs
+ddir     = $(BDIR)/software/build-tmp
+idir     = $(BDIR)/software/installed
+ibdir    = $(BDIR)/software/installed/bin
+ildir    = $(BDIR)/software/installed/lib
+iidir    = $(BDIR)/software/installed/include
+shsrcdir = "$(shell pwd)"/reproduce/software/shell
+ibidir   = $(BDIR)/software/installed/version-info/proglib
 
 # Ultimate Makefile target. GNU Nano (a simple and very light-weight text
 # editor) is installed by default, it is recommended to have it in the
@@ -107,6 +108,15 @@ export CPPFLAGS := -I$(idir)/include $(CPPFLAGS) $(noccwarnings)
 # 'LD_LIBRARY_PATH', then we'll add our own newly installed libraries.  We
 # will also make sure that there is no "current directory" in it (by
 # removing a starting or trailing ':' and any occurance of '::'.
+#
+# But first: in case LD_LIBRARY_PATH is empty, give it the default value of
+# $(sys_library_sh_path) (which was the location of the libraries needed by
+# the host's shell). This is because after we add the Maneage's library
+# path, on some systems, no other libraries will be checked except those
+# that are in 'LD_LIBRARY_PATH'.
+ifeq ($(strip $(LD_LIBRARY_PATH)),)
+export LD_LIBRARY_PATH=$(sys_library_sh_path)
+endif
 export LD_LIBRARY_PATH := $(shell echo $(LD_LIBRARY_PATH):$(ildir) \
                                   | sed -e's/::/:/g' -e's/^://' -e's/:$$//')
 
@@ -127,7 +137,7 @@ export DYLD_LIBRARY_PATH :=
 # Afer putting everything together, we use the first server as the
 # reference for all software if their '-url' variable isn't defined (in
 # 'reproduce/software/config/urls.conf').
-downloadwrapper = ./reproduce/analysis/bash/download-multi-try
+downloadwrapper = ./reproduce/analysis/bash/download-multi-try.sh
 maneage_backup_urls := $(shell awk '!/^#/{printf "%s ", $$1}' \
                                reproduce/software/config/servers-backup.conf)
 backupservers_all = $(user_backup_urls) $(maneage_backup_urls)
@@ -263,46 +273,10 @@ $(ibidir)/gzip-$(gzip-version): | $(ibdir) $(ildir) $(lockdir)
 	$(call gbuild, gzip-$(gzip-version), static, , V=1)
 	echo "GNU Gzip $(gzip-version)" > $@
 
-# 2022-07-14 B Roukema
-#
-# xz-5.2.5 fails on (at least) CentOS 7 (Redhat) systems while trying
-# to compile 'cmake' in Maneage - this is Maneage bug 62700 [1].
-#
-# The fix appears to be just a few lines, although it's not clear
-# how robust or long-term it is. Since we don't yet have 'patch' in
-# 'basic.mk', this file has to be copied into place rather than patched.
-
-# xz-5.2.5_src_liblzma_liblzma.map is a patched
-# version of xz-5.2.5/src/liblzma/liblzma.map based on discussion at
-# [1] + [2] + the patch file [3].
-#
-# [1] https://savannah.nongnu.org/bugs/index.php?62700
-# [2] https://github.com/easybuilders/easybuild-easyconfigs/issues/14991
-# [3] https://raw.githubusercontent.com/easybuilders/easybuild-easyconfigs/bcebb3320ffb63f9804ca8d4d64d1822ec7c9792/easybuild/easyconfigs/x/XZ/XZ-5.2.5_compat-libs.patch
 $(ibidir)/xz-$(xz-version): $(ibidir)/gzip-$(gzip-version)
-
-#	Prepare the tarball.
 	tarball=xz-$(xz-version).tar.lz
 	$(call import-source, $(xz-url), $(xz-checksum))
-
-#	Until the bug mentioned above is fixed, we'll can't use the generic
-#	rule.
-#	$(call gbuild, xz-$(xz-version), static)
-
-#	Configure and build with patched file.
-	srcdir=$$(pwd)
-	unpackdir=xz-$(xz-version)
-	patchedfile=xz-5.2.5_src_liblzma_liblzma.map
-	cd $(ddir)
-	rm -rf $$unpackdir
-	tar -x -f $(tdir)/$$tarball
-	cd $$unpackdir
-	cp -pv $$srcdir/reproduce/software/patches/$$patchedfile \
-	       src/liblzma/liblzma.map # copy the fixed file into place
-	./configure --prefix=$(idir)
-	make install
-	cd ..
-	rm -rf $$unpackdir
+	$(call gbuild, xz-$(xz-version), static)
 	echo "XZ Utils $(xz-version)" > $@
 
 $(ibidir)/bzip2-$(bzip2-version): $(ibidir)/gzip-$(gzip-version)
@@ -336,6 +310,7 @@ $(ibidir)/bzip2-$(bzip2-version): $(ibidir)/gzip-$(gzip-version)
 	rm -rf $$tdir
 	tar -xf $(tdir)/$$tarball
 	cd $$tdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	sed -e 's@\(ln -s -f \)$$(PREFIX)/bin/@\1@' Makefile \
 	    > Makefile.sed
 	mv Makefile.sed Makefile
@@ -634,6 +609,7 @@ $(ibidir)/perl-$(perl-version): $(ibidir)/patchelf-$(patchelf-version)
 	rm -rf perl-$(perl-version)
 	tar -xf $(tdir)/$$tarball
 	cd perl-$(perl-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	./Configure -des \
 	            -Dusethreads \
 	            -Duseshrplib \
@@ -691,21 +667,16 @@ $(ibidir)/coreutils-$(coreutils-version): \
                     $(ibidir)/perl-$(perl-version) \
                     $(ibidir)/openssl-$(openssl-version)
 
-#	Import, unpack and enter the source directory.
+#	Import the source tarball.
 	tarball=coreutils-$(coreutils-version).tar.lz
 	$(call import-source, $(coreutils-url), $(coreutils-checksum))
+
+#	Unpack and enter the source.
 	cd $(ddir)
 	rm -rf coreutils-$(coreutils-version)
 	tar -xf $(tdir)/$$tarball
 	cd coreutils-$(coreutils-version)
-
-#	Set the configure script to use our shell, note that we can't
-#	assume GNU SED here yet (it installs after Coreutils).
-	sed -e's|\#\! /bin/sh|\#\! $(ibdir)/bash|' \
-	    -e's|\#\!/bin/sh|\#\! $(ibdir)/bash|' \
-	    configure > configure-tmp
-	mv configure-tmp configure
-	chmod +x configure
+	$(shsrcdir)/prep-source.sh $(ibdir)
 
 #	Configure, build and install Coreutils.
 	./configure --prefix=$(idir) SHELL=$(ibdir)/bash  \
@@ -744,6 +715,7 @@ $(ibidir)/podlators-$(podlators-version): $(ibidir)/perl-$(perl-version)
 	rm -rf podlators-$(podlators-version)
 	tar -xf $(tdir)/$$tarball
 	cd podlators-$(podlators-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	perl Makefile.PL
 	make
 	make install
@@ -766,7 +738,7 @@ $(ibidir)/openssl-$(openssl-version): $(ibidir)/podlators-$(podlators-version) \
 #	First download the certificates and copy them into the
 #	installation directory.
 	tarball=cert.pem-$(certpem-version)
-	$(call import-source, $(cert-url), $(cert-checksum))
+	$(call import-source, $(certpem-url), $(certpem-checksum))
 	cp $(tdir)/cert.pem-$(certpem-version) $(idir)/etc/ssl/cert.pem
 
 #	Now download the OpenSSL tarball.
@@ -1030,7 +1002,7 @@ $(ibidir)/gmp-$(gmp-version): \
 	$(call import-source, $(gmp-url), $(gmp-checksum))
 	$(call gbuild, gmp-$(gmp-version), static, \
 	               --enable-cxx --enable-fat, \
-	               -j$(numthreads) ,make check)
+	               -j$(numthreads))
 	echo "GNU Multiple Precision Arithmetic Library $(gmp-version)" > $@
 
 # Less is useful with Git (to view the diffs within a minimal container)
@@ -1070,16 +1042,27 @@ $(ibidir)/libtool-$(libtool-version): $(ibidir)/m4-$(m4-version)
 $(ibidir)/grep-$(grep-version): $(ibidir)/coreutils-$(coreutils-version)
 	tarball=grep-$(grep-version).tar.lz
 	$(call import-source, $(grep-url), $(grep-checksum))
-	$(call gbuild, grep-$(grep-version), static,,V=1)
+	$(call gbuild, grep-$(grep-version), static,, \
+	               -j$(numthreads) V=1)
 	echo "GNU Grep $(grep-version)" > $@
 
 # M4 doesn't depend on PatchELF, but just to be consistent with the
 # levels/phases introduced here (where the compressors are level 1,
 # PatchELF is level 2, and ...), we'll set it as a dependency.
+#
+# The '--with-syscmd-shell' is used as the default shell and if not given,
+# 'm4' will use '/bin/sh' (which is not under Maneage control and can cause
+# problems in 'high-level.mk' because it closes off the system's
+# LD_LIBRARY_PATH and if the system's '/bin/sh' needs a special system
+# library, the high-level programs will not be built). We are setting this
+# default shell to Dash because M4 is built before our own Bash. Recall
+# that Dash is built before we enter this Makefile.
 $(ibidir)/m4-$(m4-version): $(ibidir)/patchelf-$(patchelf-version)
 	tarball=m4-$(m4-version).tar.lz
 	$(call import-source, $(m4-url), $(m4-checksum))
-	$(call gbuild, m4-$(m4-version), static,,V=1)
+	$(call gbuild, m4-$(m4-version), static, \
+	               --with-syscmd-shell=$(ibdir)/dash, \
+	               -j$(numthreads) V=1)
 	echo "GNU M4 $(m4-version)" > $@
 
 $(ibidir)/mpfr-$(mpfr-version): $(ibidir)/gmp-$(gmp-version)
@@ -1169,7 +1152,7 @@ $(ibidir)/mpc-$(mpc-version): $(ibidir)/mpfr-$(mpfr-version)
 	  echo "" > $@
 	else
 	  $(call gbuild, mpc-$(mpc-version), static, , \
-	                 -j$(numthreads), make check)
+	                 -j$(numthreads))
 	  echo "GNU Multiple Precision Complex library" > $@
 	fi
 
@@ -1228,7 +1211,8 @@ $(ibidir)/binutils-$(binutils-version): \
 
 #	  Build binutils with the standard 'gbuild' function.
 	  $(call gbuild, binutils-$(binutils-version), static, \
-	                 --with-lib-path=$(sys_library_path), \
+	                 --with-lib-path=$(sys_library_path) \
+	                 --enable-gprofng=no, \
 	                 -j$(numthreads) V=1)
 
 #	  The 'ld' linker of Binutils needs several '*crt*.o' files from
@@ -1356,21 +1340,35 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 #	  to avoid building so many small/temporary files and possibly
 #	  harming the hard-drive or SSD. But if the RAM doesn't have enough
 #	  space, we should use the hard-drive or SSD. During its build,
-#	  GCC's build directory will become about 7GiB (in units of 1024^3
-#	  bytes, for GCC 12.1.0, which corresponds to 7.5GB, in units of
-#	  1000^3 bytes). So at this step, we make sure that we have more
-#	  than 12GiB before GCC starts to build. See the figure in the link
-#	  below for GCC's RAM consumption as a function of time:
+#	  GCC's build directory will become several gigabytes and the build
+#	  also needs RAM. You can track the RAM usage of the system with a
+#	  1-second resolution (if no other RAM consuming program is running
+#	  while building GCC) with the command below (example outputs can
+#	  be seen in https://savannah.nongnu.org/task/index.php?16623).
 #
-#	  https://savannah.nongnu.org/task/?16244#comment12
+#	     c=1; while true; do POSIXLY_CORRECT=1 df -P /dev/shm/maneage-* | awk 'NR==2{print '$c', $3}'; c=$((c+1)); sleep 1; done > mem-usage.txt
+#	    asttable mem-usage.txt -c1,'arith $2 512 x 1024 / 1024 / 1024 /' -o mem.fits
 #
 #	  For POSIX portability and longevity (default sizes might change),
 #	  we use the '-P' option, and we use the environment variable
-#	  POSIXLY_CORRECT=1, so the 'block size' is 512 bytes. We'll also
-#	  allow for about ~0.5 GB at the start.
+#	  POSIXLY_CORRECT=1, so the 'block size' is 512 bytes. In this way,
+#	  to get the actual GiB amount, multiply the value returned above
+#	  by 512 (B/block), then divide by 1024^3 (B/GiB).
 #
-#	  So we need 8 GiB * 1024^3 (B/GiB) / 512 blocks/B = 16777216
-#	  blocks, in blocks of 512 bytes.
+#	  To get the final value to use here, get the maximum used value
+#	  after GCC is fully built and you have stopped the 'while true'
+#	  command above. You can do this with the command below (assumes
+#	  you have Gnuastro).
+#
+#	     aststatistics mem-usage.txt -c2 --maximum | asttable -c'arith $1 7000000 +' -Afixed -B0
+#
+#	  The extra space is because we will assume an extra 3 GiB = 3GiB *
+#	  1024^3 (B/GiB) / 512 (B/block) = 6291456 blocks are necessary for
+#	  the building (let's round it to 7000000!).
+#
+#	  Therefore, we need to make sure that the running system more than
+#	  the necessary amount of space in the RAM. To do this, we use 'df'
+#	  below.
 #
 #	  The 4th column of 'df' is the "available" space at the time of
 #	  running, not the full space. So the 'RAM disk' that the OS
@@ -1380,7 +1378,7 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 #	  alone - no other Maneage software is built at the same time as
 #	  GCC - so this amount of RAM should be enough.
 	  in_ram=$$(POSIXLY_CORRECT=1 df -P $(ddir) \
-	               | awk 'NR==2{print ($$4>16777216) ? "yes" : "no"}'); \
+	               | awk 'NR==2{print ($$4>26613216) ? "yes" : "no"}'); \
 	  if [ $$in_ram = "yes" ]; then odir=$(ddir)
 	  else
 	    odir=$(BDIR)/software/build-tmp-gcc-due-to-lack-of-space
@@ -1399,6 +1397,7 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 	    ln -s $$odir/gcc-$(gcc-version) $(ddir)/gcc-$(gcc-version)
 	  fi
 	  cd gcc-$(gcc-version)
+	  $(shsrcdir)/prep-source.sh $(ibdir)
 
 #	  Unfortunately binutils installs headers like 'ansidecl.h' that
 #	  have been seen to conflict with GCC's internal versions of those
@@ -1506,7 +1505,18 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 
 
 
-# Software that need re-compilation (to use our own libraries)
+# Level 6: need re-compilation
+# ----------------------------
+#
+# The initial build of these was done with the host's settings, which will
+# cause problems later when we completely close-off the host environment.
+$(ibidir)/make-$(make-version): $(ibidir)/gcc-$(gcc-version)
+	tarball=make-$(make-version).tar.lz
+	$(call import-source, $(make-url), $(make-checksum))
+	$(call gbuild, make-$(make-version), static, \
+	               --disable-dependency-tracking --without-guile)
+	echo "GNU Make $(make-version)" > $@
+
 $(ibidir)/lzip-$(lzip-version): $(ibidir)/gcc-$(gcc-version)
 	tarball=lzip-$(lzip-version).tar
 	unpackdir=lzip-$(lzip-version)
@@ -1514,6 +1524,7 @@ $(ibidir)/lzip-$(lzip-version): $(ibidir)/gcc-$(gcc-version)
 	rm -rf $$unpackdir
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	./configure --build --check --installdir="$(ibdir)"
 	if [ -f $(ibdir)/patchelf ]; then
 	  $(ibdir)/patchelf --set-rpath $(ildir) $(ibdir)/lzip;
@@ -1526,11 +1537,7 @@ $(ibidir)/lzip-$(lzip-version): $(ibidir)/gcc-$(gcc-version)
 
 
 
-
-
-
-
-# Level 6: Basic text editor
+# Level 7: Basic text editor
 # --------------------------
 #
 # If the project is built in a minimal environment, there is no text
@@ -1547,7 +1554,8 @@ $(ibidir)/lzip-$(lzip-version): $(ibidir)/gcc-$(gcc-version)
 # nano (and use their own optional high-level text editor). To do this, you
 # can just have to manually remove 'nano' from 'targets-proglib' above and
 # add their optional text editor in 'TARGETS.conf'.
-$(ibidir)/nano-$(nano-version): $(ibidir)/lzip-$(lzip-version)
+$(ibidir)/nano-$(nano-version): $(ibidir)/lzip-$(lzip-version) \
+                                $(ibidir)/make-$(make-version)
 	tarball=nano-$(nano-version).tar.lz
 	$(call import-source, $(nano-url), $(nano-checksum))
 	$(call gbuild, nano-$(nano-version), static)

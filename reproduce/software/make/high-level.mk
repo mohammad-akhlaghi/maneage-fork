@@ -12,8 +12,8 @@
 #
 # ------------------------------------------------------------------------
 #
-# Copyright (C) 2018-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
-# Copyright (C) 2019-2023 Raul Infante-Sainz <infantesainz@gmail.com>
+# Copyright (C) 2018-2025 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2019-2025 Raul Infante-Sainz <infantesainz@gmail.com>
 #
 # This Makefile is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -64,6 +64,12 @@ ipydir   = $(BDIR)/software/installed/version-info/python
 ircrandir    = $(BDIR)/software/installed/version-info/r-cran
 ilibrcrandir = $(BDIR)/software/installed/lib/R/library
 
+# Special files.
+makewshell = $(ibdir)/make-with-shell
+
+
+
+
 
 # Targets to build.
 ifeq ($(strip $(all_highlevel)),1)
@@ -112,11 +118,16 @@ else
 
 endif
 
+# Disable the TeXLive target if `--offline`
+ifneq ($(strip $(offline)),1)
+  target-texlive := $(itidir)/texlive
+endif
+
 # Ultimate Makefile target.
 all: $(foreach p, $(targets-proglib), $(ibidir)/$(p)) \
      $(foreach p, $(targets-python), $(ipydir)/$(p)) \
      $(foreach p, $(targets-r-cran),  $(ircrandir)/$(p)) \
-     $(itidir)/texlive
+     $(target-texlive)
 
 # Define the shell environment
 # ----------------------------
@@ -232,7 +243,7 @@ $(idircustom):; mkdir $@
 # Afer putting everything together, we use the first server as the
 # reference for all software if their '-url' variable isn't defined (in
 # 'reproduce/software/config/urls.conf').
-downloadwrapper = ./reproduce/analysis/bash/download-multi-try
+downloadwrapper = ./reproduce/analysis/bash/download-multi-try.sh
 maneage_backup_urls := $(shell awk '!/^#/{printf "%s ", $$1}' \
                                reproduce/software/config/servers-backup.conf)
 backupservers_all = $(user_backup_urls) $(maneage_backup_urls)
@@ -339,6 +350,7 @@ $(ibidir)/atlas-$(atlas-version):
 	cd $(ddir)
 	tar -xf $(tdir)/atlas-$(atlas-version).tar.lz
 	cd ATLAS
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	rm -rf build
 	mkdir build
 	cd build
@@ -395,6 +407,7 @@ $(ibidir)/boost-$(boost-version): \
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	./bootstrap.sh --prefix=$(idir) --with-libraries=all \
 	               --with-python=python3
 	echo "using mpi ;" > project-config.jam
@@ -417,9 +430,7 @@ $(ibidir)/cfitsio-$(cfitsio-version):
 	topdir=$(pwd); cd $(ddir); tar -xf $(tdir)/$$tarball
 	customtar=cfitsio-$(cfitsio-version)-custom.tar.gz
 	cd cfitsio-$(cfitsio-version)
-	sed configure -e's|@rpath|$(ildir)|g' > configure_tmp
-	mv configure_tmp configure
-	chmod +x configure
+	sed -i -e's|@rpath|$(ildir)|g' configure
 	cd ..
 	tar cf $$customtar cfitsio-$(cfitsio-version)
 	cd $$topdir
@@ -427,11 +438,14 @@ $(ibidir)/cfitsio-$(cfitsio-version):
 #	Continue the standard build on the customized tarball. Note that
 #	with the installation of CFITSIO, 'fpack' and 'funpack' are not
 #	installed by default. Because of that, they are added explicity.
+#
+#	Note that older versions of CFITSIO (before 4.4.0) require a
+#	specific 'shared' target for the building of the shared libraries.
 	export gbuild_tar=$(ddir)/$$customtar
 	$(call gbuild, cfitsio-$(cfitsio-version), , \
 	               --enable-sse2 --enable-reentrant \
 	               --with-bzip2=$(idir), , \
-	               make shared fpack funpack)
+	               make fpack funpack)
 	rm $$customtar
 	echo "CFITSIO $(cfitsio-version)" > $@
 
@@ -518,6 +532,12 @@ $(ibidir)/fftw-$(fftw-version):
 	echo "FFTW $(fftw-version) \citep{fftw}" > $@
 
 $(ibidir)/freetype-$(freetype-version): $(ibidir)/libpng-$(libpng-version)
+#	As of version 2.13.2, FreeType doesn't account for the 'SHELL'
+#	environment variable. The issue has been reported to the
+#	developers. But until future versions, the work-around was
+#	discoverd to be setting the 'GNUMAKE' environment variable so it
+#	includes 'SHELL'.
+	export GNUMAKE="$(makewshell)"
 	tarball=freetype-$(freetype-version).tar.lz
 	$(call import-source, $(freetype-url), $(freetype-checksum))
 	$(call gbuild, freetype-$(freetype-version), static)
@@ -578,7 +598,9 @@ $(ibidir)/healpix-$(healpix-version): $(healpix-python-dep) \
 	rm -rf $(ddir)/Healpix_$(healpix-version)
 	topdir=$(pwd); cd $(ddir);
 	tar -xf $(tdir)/$$tarball
-	cd Healpix_$(healpix-version)/src/C/autotools/
+	cd Healpix_$(healpix-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
+	cd src/C/autotools
 	autoreconf --install
 	./configure --prefix=$(idir)
 	make V=1 -j$(numthreads) SHELL=$(ibdir)/bash
@@ -670,6 +692,7 @@ $(ibidir)/libpaper-$(libpaper-version): \
 	tar -xf $(tdir)/$$tarball
 	unpackdir=libpaper-$(libpaper-version)
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	autoreconf -fi
 	./configure --prefix=$(idir) --sysconfdir=$(idir)/etc \
 	            --disable-static
@@ -799,6 +822,7 @@ $(ibidir)/openblas-$(openblas-version):
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	cd OpenBLAS-$(openblas-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	make -j$(numthreads)
 	make PREFIX=$(idir) install
 	cd ..
@@ -905,8 +929,8 @@ $(ibidir)/libgit2-$(libgit2-version): $(ibidir)/cmake-$(cmake-version)
 	              -DUSE_SSH=OFF -DBUILD_CLAR=OFF \
 	              -DTHREADSAFE=ON -DUSE_ICONV=OFF )
 	if [ x$(on_mac_os) = xyes ]; then
-	  install_name_tool -id $(ildir)/libgit2.1.3.dylib \
-	                        $(ildir)/libgit2.1.3.dylib
+	  install_name_tool -id $(ildir)/libgit2.1.9.dylib \
+	                        $(ildir)/libgit2.1.9.dylib
 	fi
 	echo "Libgit2 $(libgit2-version)" > $@
 
@@ -1007,6 +1031,7 @@ $(ibidir)/astrometrynet-$(astrometrynet-version): \
 	rm -rf astrometry.net-$(astrometrynet-version)
 	tar -xf $(tdir)/$$tarball
 	cd astrometry.net-$(astrometrynet-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	sed -e 's|cat /proc/cpuinfo|echo "Ignoring CPU info"|' \
 	    -e 's|-free|echo "Ignoring RAM info"|' Makefile > Makefile.tmp
 	mv Makefile.tmp Makefile
@@ -1045,6 +1070,7 @@ $(ibidir)/cdsclient-$(cdsclient-version):
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	cd cdsclient-$(cdsclient-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	touch *
 	./configure --prefix=$(idir)
 	make
@@ -1061,25 +1087,39 @@ $(ibidir)/cmake-$(cmake-version):
 	tarball=cmake-$(cmake-version).tar.lz
 	$(call import-source, $(cmake-url), $(cmake-checksum))
 
-#	After searching in 'bootstrap', I couldn't find 'LIBS', only
-#	'LDFLAGS'. So the extra libraries are being added to 'LDFLAGS', not
-#	'LIBS'.
-#
 #	On Mac systems, the build complains about 'clang' specific
 #	features, so we can't use our own GCC build here.
 	if [ x$(on_mac_os) = xyes ]; then
 	  export CC=clang
 	  export CXX=clang++
 	fi
+
+#	CMake wants a single executable for 'MAKE', so we can't use 'make
+#	SHELL=$(SHELL) and we have defined this script.
+	export MAKE="$(makewshell)"
+
+#	Go into the unpacked directory and prepare CMake.
 	cd $(ddir)
 	rm -rf cmake-$(cmake-version)
 	tar -xf $(tdir)/$$tarball
 	cd cmake-$(cmake-version)
-	./bootstrap --prefix=$(idir) --system-curl --system-zlib \
-	            --system-bzip2 --system-liblzma --no-qt-gui \
+	$(shsrcdir)/prep-source.sh $(ibdir)
+
+#	Bootstrap, build and install CMake:
+#	- With the '--no-system-libs' option, CMake builds and statically
+#	  links all the libraries it needs. Even though some of those (like
+#	  liblzma, libcurl, zlib or bzip2) are within Maneage, we
+#	  discovered that CMake can get confused and use out-of-Maneage
+#	  libraries (https://savannah.nongnu.org/bugs/?63043).
+	./bootstrap --no-qt-gui \
+	            --prefix=$(idir) \
+	            --no-system-libs \
 	            --parallel=$(numthreads)
-	make -j$(numthreads) LIBS="$$LIBS -lssl -lcrypto -lz" VERBOSE=1
-	make install
+	$(makewshell) VERBOSE=1 LIBS="$$LIBS -lssl -lcrypto -lz" \
+	              -j$(numthreads)
+	$(makewshell) install
+
+#	Clean up.
 	cd ..
 	rm -rf cmake-$(cmake-version)
 	echo "CMake $(cmake-version)" > $@
@@ -1129,11 +1169,14 @@ $(ibidir)/ghostscript-$(ghostscript-version): \
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	cd ghostscript-$(ghostscript-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	./configure --prefix=$(idir) \
 	            --disable-cups \
 	            --enable-dynamic \
 	            --disable-compile-inits \
-	            CFLAGS="-DPNG_ARM_NEON_OPT=0"
+		    --disable-hidden-visibility \
+		    CFLAGS="-DPNG_ARM_NEON_OPT=0" \
+		    LDFLAGS=-Wl,--copy-dt-needed-entries
 
 #	Build and install the program and the shared libraries.
 	make    V=1 -j$(numthreads)
@@ -1170,7 +1213,7 @@ $(ibidir)/gnuastro-$(gnuastro-version): \
 	$(call gbuild, gnuastro-$(gnuastro-version), static, , \
 	               -j$(numthreads))
 	cp $(dtexdir)/gnuastro.tex $(ictdir)/
-	echo "GNU Astronomy Utilities $(gnuastro-version) \citep{gnuastro,akhlaghi19}" > $@
+	echo "GNU Astronomy Utilities $(gnuastro-version) \citep{gnuastro}" > $@
 
 $(ibidir)/icu-$(icu-version): $(ibidir)/python-$(python-version)
 
@@ -1188,7 +1231,9 @@ $(ibidir)/icu-$(icu-version): $(ibidir)/python-$(python-version)
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	unpackdir=icu-$(icu-version)
-	cd $$unpackdir/icu4c/source
+	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
+	cd icu4c/source
 	./configure --enable-static --prefix=$(idir)
 	make -j$(numthreads) V=1
 	make install
@@ -1255,6 +1300,7 @@ $(ibidir)/imfit-$(imfit-version): \
 	rm -rf $$unpackdir
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	sed -i 's|/usr/local|$(idir)|g' SConstruct
 	sed -i 's|/usr/include|$(idir)/include|g' SConstruct
 	sed -i 's|.append(|.insert(0,|g' SConstruct
@@ -1302,6 +1348,7 @@ $(ibidir)/minizip-$(minizip-version): $(ibidir)/automake-$(automake-version)
 	mkdir $$unpackdir
 	tar -xf $(tdir)/$$tarball -C$$unpackdir --strip-components=1
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	./configure --prefix=$(idir)
 	make
 	cd contrib/minizip
@@ -1363,6 +1410,7 @@ $(ibidir)/netpbm-$(netpbm-version): \
 	rm -rf $$unpackdir
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 
 #	As of NetPBM 10.73.39 and Flex 2.6.4-410-74a89fd (commit 74a89fd in
 #	Flex's Git that is 410 commits after version 2.6.4), there is the
@@ -1482,6 +1530,7 @@ $(ibidir)/scons-$(scons-version): $(ibidir)/python-$(python-version)
 	rm -rf $$unpackdir
 	tar -xf $(tdir)/$$tarball
 	cd $$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 
 #	Unfortuantely SCons hard-codes its search PATH in its source (to
 #	use POSIX operating system defaults)! So the only way to modify it
@@ -1613,7 +1662,10 @@ $(ibidir)/swig-$(swig-version):
 # '$(ibdir)'. If any program does need 'util-linux' libraries, they can
 # simply add the proper directories to the environment variables, see
 # 'fontconfig' for example.
-$(ibidir)/util-linux-$(util-linux-version): | $(idircustom)
+$(ibidir)/util-linux-$(util-linux-version): \
+                     $(ibidir)/autoconf-$(autoconf-version) \
+                     $(ibidir)/automake-$(automake-version) \
+                     | $(idircustom)
 
 #	Import the source.
 	tarball=util-linux-$(util-linux-version).tar.lz
@@ -1625,26 +1677,29 @@ $(ibidir)/util-linux-$(util-linux-version): | $(idircustom)
 	cd $(ddir)
 	tar -xf $(tdir)/$$tarball
 	cd util-linux-$(util-linux-version)
+	$(shsrcdir)/prep-source.sh $(ibdir)
 
-#       If a patch exists for the current version, apply it.
+#       If a patch is necessary, apply it.
 	if [ -f $(patchdir)/util-linux-$(util-linux-version)-macos.patch ]; then
 	  cp $(patchdir)/util-linux-$(util-linux-version)-macos.patch \
 	     util-linux-$(util-linux-version)-macos.patch
 	  git apply util-linux-$(util-linux-version)-macos.patch
 	fi
 
-#       The 'mkswap' feature needs low-level file system and kernel headers
-#       that are not always available (in particular on older Linux
-#       kernels). Also, creating SWAP space will need root permissions, so
-#       its not something a Maneager may need! Unfortunately there is no
-#       configuration option to disable this so we'll have to disable it
-#       manually by commenting the relevant files in the
-#       'configure.ac'. Having a more recent 'configure.ac' will trigger
-#       the './configure' script to be re-created after the first run, but
-#       it is pretty fast and not a problem.
+#	The 'mkswap' feature needs low-level file system and kernel headers
+#	that are not always available (in particular on older Linux
+#	kernels). Also, creating SWAP space will need root permissions, so
+#	its not something a Maneager may need! Unfortunately there is no
+#	configuration option to disable this so we'll have to disable it
+#	manually by commenting the relevant files in the
+#	'configure.ac'.
 	sed -e's|UL_BUILD_INIT(\[mkswap\], \[yes\])|UL_BUILD_INIT(\[mkswap\], \[no\])|' \
 	    -i configure.ac
 
+#	Having updated 'configure.ac', we need to re-generate the
+#	'./configure' script with 'autoreconf' (which is part of Autoconf
+#	and needs Automake; hence why they are dependencies.
+	autoreconf -f
 
 #	Configure Util-linux
 	export CONFIG_SHELL=$(ibdir)/bash
@@ -1652,6 +1707,7 @@ $(ibidir)/util-linux-$(util-linux-version): | $(idircustom)
 	            --disable-dependency-tracking \
 	            --enable-libmount-support-mtab \
 	            --disable-silent-rules \
+	            --disable-liblastlog2 \
 	            --disable-mountpoint \
 	            --disable-libmount \
 	            --disable-unshare \
@@ -1727,6 +1783,7 @@ $(ibidir)/vim-$(vim-version):
 	tar -xf $(tdir)/$$tarball
 	unpackdir=vim-$(vim-version)
 	cd $(ddir)/$$unpackdir
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	./configure --prefix=$(idir) \
 	            --disable-canberra \
 	            --enable-multibyte \
@@ -1795,9 +1852,15 @@ $(itidir)/texlive-ready-tlmgr: reproduce/software/config/texlive.conf
 	rm -rf install-tl-*
 	tar -xf $(tdir)/install-tl-unx.tar.gz
 	cd install-tl-*
+	$(shsrcdir)/prep-source.sh $(ibdir)
 	sed -e's|@installdir[@]|$(idir)|g' \
 	    "$$topdir"/reproduce/software/config/texlive.conf \
 	    > texlive.conf
+
+#	We do not build TeXLive from source and for its installation it
+#	downloads components from the web internally; and those components
+#	can use '/bin/sh' (which will need '$(sys_library_sh_path)').
+	export LD_LIBRARY_PATH="$(sys_library_sh_path):$$LD_LIBRARY_PATH"
 
 #	TeX Live's installation may fail due to any reason. But TeX Live is
 #	optional (only necessary for building the final PDF). So we don't
@@ -1867,13 +1930,16 @@ $(itidir)/texlive-ready-tlmgr: reproduce/software/config/texlive.conf
 	    tarballurl=$$url/install-tl-unx.tar.gz
 	    touch $(lockdir)/download
 	    downloader="wget --no-use-server-timestamps -O"
-	    if $(downloadwrapper) "$$downloader" $(lockdir)/download \
-	                          $$tarballurl "$(tdir)/install-tl-unx.tar.gz" \
-	                          "$(backupservers)"; then
+	    if $(downloadwrapper) "$$downloader" \
+	                          $(lockdir)/download \
+	                          $$tarballurl \
+	                          "$(tdir)/install-tl-unx.tar.gz" \
+                                 "$(backupservers)"; then
 	      cd $(ddir)
 	      rm -rf install-tl-*
 	      tar -xf $(tdir)/install-tl-unx.tar.gz
 	      cd install-tl-*
+	      $(shsrcdir)/prep-source.sh $(ibdir)
 	      sed -e's|@installdir[@]|$(idir)|g' \
 	          $$topdir/reproduce/software/config/texlive.conf \
 	          > texlive.conf
@@ -1904,10 +1970,19 @@ $(itidir)/texlive-ready-tlmgr: reproduce/software/config/texlive.conf
 # Live itself (only very basic TeX and LaTeX) and the installation of its
 # necessary packages into two packages.
 #
-# Note that Biber needs to link with libraries like libnsl. However, we
-# don't currently build biber from source. So we can't choose the library
-# version. But we have the source and build instructions for the 'nsl'
-# library. When we later build biber from source, we can easily use them.
+# Note that we do not build the TeXLive executables (like Biber) from
+# source. So in case they need special libraries, we can't choose the
+# library version here (for example see [1] and [2]). In such cases there
+# is no solution but to manually add the location necessary library to
+# LD_LIBRARY_PATH when calling the respective LaTeX command in
+# 'reproduce/analysis/make/paper.mk'. Fortunately as of Biber 2.20, it does
+# not depend on anything except the C library (all dependencies are now
+# statically linked), so problems [1] and [2] will not happen. But this can
+# generally happen for any other tool/OS, so it is important to build
+# TeXLive from source as soon as possible [3].
+#      [1] https://github.com/plk/biber/issues/445
+#      [2] https://savannah.nongnu.org/bugs/index.php?63175
+#      [3] https://savannah.nongnu.org/task/?15267
 $(itidir)/texlive: reproduce/software/config/texlive-packages.conf \
                    $(itidir)/texlive-ready-tlmgr
 
@@ -1916,6 +1991,11 @@ $(itidir)/texlive: reproduce/software/config/texlive-packages.conf \
 	if [ x"$$res" = x"NOT!" ]; then
 	  echo "" > $@
 	else
+
+#	  We do not build TeXLive from source and for its installation it
+#	  downloads components from the web internally; and those
+#	  components can use '/bin/sh' (which needs 'sys_library_sh_path').
+	  export LD_LIBRARY_PATH="$(sys_library_sh_path):$$LD_LIBRARY_PATH"
 
 #	  To update itself, tlmgr needs a backup directory.
 	  backupdir=$(idir)/texlive/backups
@@ -1939,6 +2019,13 @@ $(itidir)/texlive: reproduce/software/config/texlive-packages.conf \
 #	  Make a symbolic link of all the TeX Live executables in the bin
 #	  directory so we don't have to modify 'PATH'.
 	  ln -fs $(idir)/texlive/maneage/bin/*/* $(ibdir)/
+
+#	  Correct any reference to '/bin/sh' within the installed LaTeX
+#	  files (this is because we do no yet install LaTeX from source):
+	  cdir=$$(pwd)
+	  cd $(idir)/texlive
+	  $(shsrcdir)/prep-source.sh $(ibdir)
+	  cd $$cdir
 
 #	  Get all the necessary versions.
 	  texlive=$$(pdflatex --version \

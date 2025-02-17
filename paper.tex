@@ -1,4 +1,4 @@
-%% Copyright (C) 2018-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+%% Copyright (C) 2018-2025 Mohammad Akhlaghi <mohammad@akhlaghi.org>
 %% See the end of the file for license conditions.
 \documentclass[preprint2, times, twocolappendix]{aastex631}
 
@@ -85,6 +85,11 @@ You can use Figures like Figure \ref{fig:image-histogram}.
 
 
 \section{Acknowledgement}
+\new{Please include the following paragraph in the Acknowledgement section of your paper.
+  In order to get more funding to continue working on Maneage, we need to to cite it and its funding institutions in your papers.
+  Also note that at the start, it includes version and date information for the most recent Maneage commit you merged with (which can be very helpful for others) as well as very basic information about your CPU architecture (which was extracted during configuration).
+  This CPU information is very important for reproducibility because some software may not be buildable on other CPU architectures, so it is necessary to publish CPU information with the results and software versions.}
+
 The workflow of this research note was developed in the reproducible framework of Maneage \citep[\emph{Man}aging data lin\emph{eage},][latest Maneage commit \maneageversion{}, from \maneagedate]{maneage}.
 This note is created from the Git commit {\projectversion} that is hosted on Codeberg\footnote{\url{\projectgitrepo}} and is archived on SoftwareHeritage for longevity.
 
@@ -93,6 +98,14 @@ The analysis of this research note was done using GNU Astronomy Utilities (Gnuas
 %% Bibliography
 \bibliography{references}{}
 \bibliographystyle{aasjournal}
+
+%% Start appendix.
+\appendix
+
+%% Mention all used software in an appendix.
+\section{Software acknowledgment}
+\label{appendix:software}
+\input{tex/build/macros/dependencies.tex}
 
 %% Finish LaTeX
 \end{document}

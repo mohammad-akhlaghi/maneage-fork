@@ -14,8 +14,8 @@
 #
 # ------------------------------------------------------------------------
 #
-# Copyright (C) 2021-2023 Mohammad Akhlaghi <mohammad@akhlaghi.org>
-# Copyright (C) 2021-2023 Raul Infante-Sainz <infantesainz@gmail.com>
+# Copyright (C) 2021-2025 Mohammad Akhlaghi <mohammad@akhlaghi.org>
+# Copyright (C) 2021-2025 Raul Infante-Sainz <infantesainz@gmail.com>
 #
 # This Makefile is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ $(ibidir)/libxau-$(libxau-version): $(ibidir)/xorgproto-$(xorgproto-version)
 
 # Library implementing the X Display Manager Control Protocol.
 $(ibidir)/libxdmcp-$(libxdmcp-version): $(ibidir)/libxau-$(libxau-version)
-	tarball=libXdmcp-$(libxdmcp-version).tar.bz2
+	tarball=libXdmcp-$(libxdmcp-version).tar.lz
 	$(call import-source, $(libxdmcp-url), $(libxdmcp-checksum))
 	$(call gbuild, libXdmcp-$(libxdmcp-version),,$(XORG_CONFIG), V=1)
 	echo "libXdmcp (Xorg) $(libxdmcp-version)" > $@
