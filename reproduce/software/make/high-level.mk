@@ -444,6 +444,7 @@ $(ibidir)/cfitsio-$(cfitsio-version):
 #
 #	Note that older versions of CFITSIO (before 4.4.0) require a
 #	specific 'shared' target for the building of the shared libraries.
+	export CFLAGS="-std=gnu17 $$CFLAGS"
 	export gbuild_tar=$(ddir)/$$customtar
 	$(call gbuild, cfitsio-$(cfitsio-version), , \
 	               --enable-sse2 --enable-reentrant \
@@ -1198,8 +1199,8 @@ $(ibidir)/ghostscript-$(ghostscript-version): \
 	            --enable-dynamic \
 	            --disable-compile-inits \
 		    --disable-hidden-visibility \
-		    CFLAGS="-DPNG_ARM_NEON_OPT=0" \
-		    LDFLAGS=-Wl,--copy-dt-needed-entries
+		    LDFLAGS=-Wl,--copy-dt-needed-entries \
+		    CFLAGS="-DPNG_ARM_NEON_OPT=0 -std=gnu17"
 
 #	Build and install the program and the shared libraries.
 	make    V=1 -j$(numthreads)
@@ -1229,7 +1230,6 @@ $(ibidir)/gnuastro-$(gnuastro-version): \
                    $(ibidir)/wcslib-$(wcslib-version) \
                    $(ibidir)/libjpeg-$(libjpeg-version) \
                    $(ibidir)/libtiff-$(libtiff-version) \
-                   $(ibidir)/libgit2-$(libgit2-version) \
                    $(ibidir)/ghostscript-$(ghostscript-version)
 	tarball=gnuastro-$(gnuastro-version).tar.lz
 	$(call import-source, $(gnuastro-url), $(gnuastro-checksum))
@@ -1865,7 +1865,6 @@ $(ibidir)/zip-$(zip-version): $(ibidir)/gzip-$(gzip-version)
 # NY on the internet infrastructure).
 texlive-url=http://mirrors.rit.edu/CTAN/systems/texlive/tlnet
 $(itidir)/texlive-ready-tlmgr: reproduce/software/config/texlive.conf
-
 	tarball=install-tl-unx.tar.gz
 	$(call import-source, $(texlive-url), NO-CHECK-SUM)
 
