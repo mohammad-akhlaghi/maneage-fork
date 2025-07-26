@@ -280,9 +280,6 @@ distclean: clean
 	$$sys_rm -f .local .build
 
 
-
-
-
 # Packaging rules
 # ---------------
 #
@@ -305,7 +302,8 @@ $(project-package-contents): paper.pdf | $(texdir)
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   "paper.bbl: tex/src/references.tex"               >> $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
-	printf "\tbiber paper\n"                                 >> $$m
+	printf "\tbibtex paper\n"                                >> $$m
+	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   ".PHONY: clean"                                   >> $$m
 	echo   "clean:"                                          >> $$m
 	printf "\trm -f *.aux *.auxlock *.bbl *.bcf\n"           >> $$m
@@ -344,8 +342,8 @@ $(project-package-contents): paper.pdf | $(texdir)
 #	temporary archive directory that we are now copying to). We will be
 #	using Bash's extended globbing ('extglob') for excluding this
 #	directory.
-	shopt -s extglob
-	cp -r tex/build/!($(project-package-name)) $$dir/tex/build
+	cp -r tex/build/build tex/build/macros tex/build/figures \
+	   $$dir/tex/build
 
 #	Clean up the $(texdir)/build* directories in the archive (when
 #	building in a group structure, there will be 'build-user1',
@@ -370,10 +368,20 @@ $(project-package-contents): paper.pdf | $(texdir)
 #	same BibLaTeX version to interpret the '.bbl' file. TIP: you can
 #	use the same strategy for other LaTeX packages that may cause
 #	problems on the arXiv server.
-	cp tex/build/build/paper.bbl $$dir/
-	tltopdir=.local/texlive/maneage/texmf-dist/tex/latex
-	find $$tltopdir/biblatex/ -maxdepth 1 -type f -print0 \
-	     | xargs -0 cp -t $$dir
+#
+#	NOT NECESSARY FOR BIBTEX
+#	cp tex/build/build/paper.bbl $$dir/
+
+#	For BibTex: merge the citations and bring them into the top source
+#	directory as well as the A&A style files.
+	cat tex/src/references.tex \
+	    tex/build/macros/dependencies-bib.tex > $$dir/references.bib
+	cp tex/src/aa.bst tex/src/aa.cls $$dir/
+
+#	Commented because arXiv is now using the latest TeXlive.
+#	tltopdir=.local/texlive/maneage/texmf-dist/tex/latex
+#	find $$tltopdir/biblatex/ -maxdepth 1 -type f -print0 \
+#	     | xargs -0 cp -t $$dir
 
 #	Just in case the package users want to rebuild some of the figures
 #	(manually un-comment the 'makepdf' command we commented above),
@@ -381,6 +389,13 @@ $(project-package-contents): paper.pdf | $(texdir)
 	pgfsettings="$$dir/tex/src/preamble-pgfplots.tex"
 	sed -e's|{tikz/}|{tex/tikz/}|' $$pgfsettings > $$pgfsettings.new
 	mv $$pgfsettings.new $$pgfsettings
+
+#	Remove all FITS and postscript files from the directory to be
+#	distributed (they consume a lot of space and are binary!).
+	cd $(texdir)
+	find $(project-package-name) -name \*.ps   -delete
+	find $(project-package-name) -name \*.fits -delete
+	cd $(curdir)
 
 #	PROJECT SPECIFIC
 #	----------------
