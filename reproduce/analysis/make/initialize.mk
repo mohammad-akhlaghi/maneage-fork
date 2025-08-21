@@ -301,6 +301,9 @@ $(project-package-contents): paper.pdf | $(texdir)
 	echo   "paper.pdf: paper.tex paper.bbl"                   > $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   "paper.bbl: tex/src/references.tex"               >> $$m
+	printf "\tcat tex/src/references.tex \\ \b\n"            >> $$m
+	printf "\t    tex/build/macros/dependencies-bib.tex \\ \b\n" >> $$m
+	printf "\t    > references.bib\n"                        >> $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	printf "\tbibtex paper\n"                                >> $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
