@@ -301,8 +301,8 @@ $(project-package-contents): paper.pdf | $(texdir)
 	echo   "paper.pdf: paper.tex paper.bbl"                   > $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   "paper.bbl: tex/src/references.tex"               >> $$m
-	printf "\tcat tex/src/references.tex \\ \b\n"            >> $$m
-	printf "\t    tex/build/macros/dependencies-bib.tex \\ \b\n" >> $$m
+	echo -e"\tcat tex/src/references.tex \\"                 >> $$m
+	echo -e"\t    tex/build/macros/dependencies-bib.tex \\"  >> $$m
 	printf "\t    > references.bib\n"                        >> $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	printf "\tbibtex paper\n"                                >> $$m
@@ -379,7 +379,7 @@ $(project-package-contents): paper.pdf | $(texdir)
 #	directory as well as the A&A style files.
 	cat tex/src/references.tex \
 	    tex/build/macros/dependencies-bib.tex > $$dir/references.bib
-	cp tex/src/aa.bst tex/src/aa.cls $$dir/
+	cp tex/src/journal/* $$dir/
 
 #	Commented because arXiv is now using the latest TeXlive.
 #	tltopdir=.local/texlive/maneage/texmf-dist/tex/latex
