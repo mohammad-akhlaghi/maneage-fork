@@ -42,10 +42,10 @@ else
 all:
 	@if [ "x$(GROUP-NAME)" = x ]; then \
 	  echo "Project is NOT configured for groups, please run"; \
-	  echo "   $$ ./project prepare"; \
+	  echo "   $$ ./project configure"; \
 	else \
 	  echo "Project is configured for groups, please run"; \
-	  echo "   $$ ./project prepare --group=$(GROUP-NAME) -j8"; \
+	  echo "   $$ ./project configure --group=$(GROUP-NAME) -j8"; \
 	fi
 	exit 1
 endif
@@ -61,7 +61,7 @@ endif
 #
 # To ensure that 'prepare' and 'make' have the same basic definitions and
 # environment and that all 'downloads' are managed in one place, both
-# './project prepare' and './project make' will first read 'initialize.mk'
+# './project configure' and './project make' will first read 'initialize.mk'
 # and 'downloads.mk'.
 makesrc = initialize \
           prepare

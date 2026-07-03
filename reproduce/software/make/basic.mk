@@ -369,14 +369,17 @@ $(ibidir)/tar-$(tar-version): \
               $(ibidir)/zlib-$(zlib-version) \
               $(ibidir)/bzip2-$(bzip2-version)
 
-#	About the onfigurations: nls and iconv were creating problems with
-#	the dependencies on MacOs and are not relevant in the context of
-#	Maneage, hence, they are disabled.
+#	About the configurations: disabled because they are not relevant in
+#	the context of Maneage usage.
+#	  - nls: conflicts with iconv on macOS.
+#	  - acl: causing crashes when Tar was compiled with GCC 16.1.1.
 	$(call unsafe-config)
 	tarball=tar-$(tar-version).tar.lz
 	$(call import-source, $(tar-url), $(tar-checksum))
 	$(call gbuild, tar-$(tar-version), , \
-	               --disable-nls am_cv_func_iconv=no, \
+	               --disable-nls \
+	               --disable-acl \
+	               am_cv_func_iconv=no, \
 	               -j$(numthreads) V=1)
 	echo "GNU Tar $(tar-version)" > $@
 
@@ -417,35 +420,56 @@ $(ibidir)/pkg-config-$(pkgconfig-version): $(ibidir)/tar-$(tar-version)
 #	'pkg-config' is built first. But when we don't have a clean build
 #	(and 'libiconv' exists) there will be a problem. So before
 #	re-building 'pkg-config', we'll remove any installation of
-#	'libiconv'.
+#	'libiconv'. This can create a known bug:
+#	https://savannah.nongnu.org/bugs/?67001
 	rm -f $(ildir)/libiconv* $(idir)/include/iconv.h
 
-#	Some Mac OS systems may have a version of the GNU C Compiler (GCC)
-#	installed that doesn't support some necessary features of building
-#	Glib (as part of pkg-config), so we will disable pkg-config's
-#	internal Glib for Mac systems, and to be further safe, we'll make
-#	sure it will use LLVM's Clang.
-#
-#	On macOS systems, to ensure that Clang can build pkg-config, take
-#	the following steps:
-#	1. Install the latest Glib via Homebrew:
-#	    brew install glib
-#	2. Set these environment variables before configuring Maneage:
-#	    export GLIB_CFLAGS=$(pkg-config --cflags glib-2.0)
-#	    export GLIB_LIBS=$(pkg-config --libs glib-2.0)
-#   	3. Ensure PKG_CONFIG_PATH includes Homebrew's pkgconfig:
-#	    export PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+#	On GNU/Linux no changes necessary, so we'll start with those. If
+#	the runner is on a macOS, some changes are necessary.
+	export compiler=""
+	confsh=./configure
 	if [ x$(on_mac_os) = xyes ]; then
-	  extra_pkgconf=""
+
+#	  On macOS we force Clang, because some GCC versions shipped with
+#	  Xcode lack features needed to build Glib.
 	  export compiler="CC=clang"
-	else
-	  export compiler=""
-	  extra_pkgconf="--with-internal-glib"
+
+#	  The bundled glib's gatomic.c uses integer-to-pointer conversions
+#	  that newer Clang (Xcode 26+) treats as hard errors on all macOS
+#	  architectures.
+	  CFLAGS="-Wno-int-conversion $$CFLAGS"
+
+#	  On macOS ARM64 the bundled glib sub-configure checks for Carbon
+#	  support with the C preprocessor only. Since 'Carbon/Carbon.h'
+#	  exists in the Xcode SDK on Apple Silicon, the check passes and
+#	  '-framework Carbon' is appended to LDFLAGS. But Carbon cannot
+#	  actually be linked on ARM64, so every subsequent linker test in
+#	  glib's configure fails silently and libglib-2.0.la is never
+#	  created. We work around this by passing gbuild a tiny wrapper
+#	  script (instead of ./configure) that patches glib/configure to
+#	  force glib_have_carbon=no before the real configure runs.
+#
+#	  NOTE: the initial two SPACES in the SED command are very
+#	  important (see 'glib/configure'): without them, the wrong
+#	  variable will be set.
+	  confsh=$(ddir)/pkg-config-configure
+	  printf '#!/bin/sh\n' > $$confsh
+	  printf 'sed -i.bak "s/^  glib_have_carbon=yes$$/' >> $$confsh
+	  printf                '  glib_have_carbon=no/"' >> $$confsh
+	  printf                ' glib/configure\n' >> $$confsh
+	  printf 'exec ./configure "$$@"\n' >> $$confsh
+	  chmod +x $$confsh
 	fi
+
+#	Configuration options:
+#	--with-internal-glib: the internal glib is necessary because
+#	       without it, we have many problems in macOS.
 	export CFLAGS="-std=$(std_c_old) $$CFLAGS"
 	$(call gbuild, pkg-config-$(pkgconfig-version), static, \
-		$$compiler $$extra_pkgconf \
-		--with-pc-path=$(ildir)/pkgconfig, V=1)
+	       $$compiler \
+	       --with-internal-glib \
+	       --with-pc-path=$(ildir)/pkgconfig, V=1, , $$confsh)
+	if [ -f $$confsh ]; then rm $$confsh; fi # Only on macOS.
 	echo "pkg-config $(pkgconfig-version)" > $@
 
 
@@ -1457,32 +1481,6 @@ $(ibidir)/gcc-$(gcc-version): $(ibidir)/binutils-$(binutils-version)
 #	  Therefore, with the 'CPPFLAGS' modification below, we tell GCC to
 #	  first look into its own 'include' directory before anything else.
 	  export CPPFLAGS="-I$$(pwd)/include $(CPPFLAGS)"
-
-#	  In the GNU C Library 2.36 (which is more recent than GCC 12.1.0),
-#	  the 'linux/mount.h' (loaded by 'linux/fs.h', which is loaded by
-#	  'libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cpp'
-#	  in GCC) conflicts with 'sys/mount.h' which is directly loaded by
-#	  the same file! This is a known conflict in glibc 2.36 (see
-#	  [1]). As described in [1], one solution is the final job done in
-#	  [2]. We therefore do this process here: 1) Not loading
-#	  'linux/fs.h', and adding the necessary macros directly.
-#
-#	  [1] https://sourceware.org/glibc/wiki/Release/2.36#Usage_of_.3Clinux.2Fmount.h.3E_and_.3Csys.2Fmount.h.3E
-#         [2] https://reviews.llvm.org/D129471
-	  sed -e's|\#include <linux/fs.h>||' \
-	      -e"s|FS_IOC_GETFLAGS;|_IOR('f', 1, long);|" \
-	      -e"s|FS_IOC_GETVERSION;|_IOR('v', 1, long);|" \
-	      -e"s|FS_IOC_SETFLAGS;|_IOW('f', 2, long);|" \
-	      -e"s|FS_IOC_SETVERSION;|_IOW('v', 2, long);|" \
-	      -i libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cpp
-
-#	  Bug in GCC 15.2.0 using glibc 2.43 (see [1]) as fixed in [2].
-#	  [1] https://patchwork.ozlabs.org/project/gcc/patch/e1679277-d7c9-49aa-8365-a8dca082d9bd@web.de
-#	  [2] https://github.com/johnny-mnemonic/toolchain-autobuilds/commit/9585fdfc
-	  sed -e's|char \*q = strchr (p + 1,|const char \*q = strchr (p + 1,|' \
-	      libgomp/affinity-fmt.c > affinity-fmt-tmp.c
-	  mv affinity-fmt-tmp.c libgomp/affinity-fmt.c
-
 
 #	  Set the build directory for the processing.
 	  mkdir build

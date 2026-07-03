@@ -187,9 +187,9 @@ information like title, DOI and etc, in a unified format (independent of
 which journal the paper is published in).
 
  - Eskandarlou et
-   al. ([2026](https://scixplorer.org/abs/2026arXiv260322166E), A&A
-   accepted;
-   arXiv:[2603.22166](https://arxiv.org/abs/2510.2603.22166)). The
+   al. ([2026](https://scixplorer.org/abs/2026A%26A...709A.210E), A&A
+   Volume 709, id.A210, 17 pp;
+   arXiv:[2603.22166](https://arxiv.org/abs/2603.22166)). The
    project's version controlled source is on
    [Gitlab](https://gitlab.com/sepideh.esk/alba), necessary software,
    outputs and backup of history are available at
@@ -1893,6 +1893,15 @@ this section, the development workflow is described:
      development repository: any historically relevant point that you find
      when making a commit should be written as comments within the source
      (to be preserved during the squash) and not in the commit message.
+
+ - Checklist for the maintainer:
+
+   - Make sure all contributors are properly acknowledged.
+
+   - The final commit amend (done to edit the final text of the commit
+     message) should be like this: `git commit --amend --date=now`. This
+     helps have a date on the commit that matches the merge (independent of
+     which development commit was squashed first).
 
 
 

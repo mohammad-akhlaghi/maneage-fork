@@ -375,20 +375,23 @@ if [ $built_container = 0 ]; then
         fi
 
         # On macOS, the way of obtaining the number of cores is different
-        # between Intel or Apple M1 CPUs. Here we disinguish between Apple
-        # M1 or others.
-        maccputype=$(sysctl -n machdep.cpu.brand_string)
-        if    [ x"$maccputype" = x"Apple M1" ] \
-           || [ x"$maccputype" = x"Apple M2" ] \
-           || [ x"$maccputype" = x"Apple M3" ] \
-           || [ x"$maccputype" = x"Apple M4" ] \
-           || [ x"$maccputype" = x"Apple M5" ] ; then
-            address_size_physical=$(sysctl -n machdep.cpu.thread_count)
-            address_size_virtual=$(sysctl -n machdep.cpu.logical_per_package)
-        else
-            address_size_physical=$(sysctl -n machdep.cpu.address_bits.physical)
-            address_size_virtual=$(sysctl -n machdep.cpu.address_bits.virtual)
-        fi
+        # between Intel or Apple Silicon CPUs. Here we distinguish between
+        # Apple Silicon (any "Apple M*" brand string, e.g. M1, M1 Pro, M1
+        # Max, M2, M2 Pro, ...) and Intel-based Macs. Note that the Apple
+        # Silicon group can be in the formats of "Apple M1" or "Apple M1
+        # Pro", so we use a prefix match via a 'case' pattern to include
+        # both in one check.
+        maccputype=$(sysctl -n machdep.cpu.brand_string 2>/dev/null)
+        case "$maccputype" in
+            "Apple M"*)
+                address_size_physical=$(sysctl -n machdep.cpu.thread_count)
+                address_size_virtual=$(sysctl -n machdep.cpu.logical_per_package)
+                ;;
+            *)
+                address_size_physical=$(sysctl -n machdep.cpu.address_bits.physical)
+                address_size_virtual=$(sysctl -n machdep.cpu.address_bits.virtual)
+                ;;
+        esac
         address_sizes="$address_size_physical bits physical, "
         address_sizes+="$address_size_virtual bits virtual"
     else
@@ -1781,30 +1784,37 @@ fi
 # an example, the directory part of the URL for all the other software are
 # the same). This is not done if the options '--debug' or `--offline` are
 # used.
-zenodourl=""
-user_backup_urls=""
-zenodocheck="$bdir"/software/zenodo-check.html
-if [ $built_container = 0 ]; then
-    if [ x$debug = x ] && [ x$offline = x ]; then
-        if $downloader $zenodocheck \
-                       https://doi.org/10.5281/zenodo.3883409; then
-            zenodourl=$(sed -n -e'/coreutils/p' $zenodocheck \
-                            | sed -n -e'/http/p' \
-                            | tr ' ' '\n' \
-                            | grep http \
-                            | sed -e 's/href="//' -e 's|/coreutils| |' \
-                            | awk 'NR==1{print $1}')
-        fi
-    fi
-    rm -f $zenodocheck
-
-    # Add the Zenodo URL to the user's given back software URLs. Since the
-    # user can specify 'user_backup_urls' (not yet implemented as an option
-    # in './project'), we'll give preference to their specified servers,
-    # then add the Zenodo URL afterwards.
-    user_backup_urls="$user_backup_urls $zenodourl"
-    elapsed_time_from_prev_step zenodo-url
-fi
+#
+# NOTE on commented region below (starting with '##'): As described [1],
+# Zenodo's upload strategy does not allow a repository with more than one
+# hundred files. So until the solution there has been implemented, this
+# step has been commented.
+#
+# [1] https://savannah.nongnu.org/task/?16621
+## zenodourl=""
+## user_backup_urls=""
+## zenodocheck="$bdir"/software/zenodo-check.html
+## if [ $built_container = 0 ]; then
+##     if [ x$debug = x ] && [ x$offline = x ]; then
+##         if $downloader $zenodocheck \
+##                        https://doi.org/10.5281/zenodo.3883409; then
+##             zenodourl=$(sed -n -e'/coreutils/p' $zenodocheck \
+##                             | sed -n -e'/http/p' \
+##                             | tr ' ' '\n' \
+##                             | grep http \
+##                             | sed -e 's/href="//' -e 's|/coreutils| |' \
+##                             | awk 'NR==1{print $1}')
+##         fi
+##     fi
+##     rm -f $zenodocheck
+##
+##     # Add the Zenodo URL to the user's given back software URLs. Since the
+##     # user can specify 'user_backup_urls' (not yet implemented as an option
+##     # in './project'), we'll give preference to their specified servers,
+##     # then add the Zenodo URL afterwards.
+##     user_backup_urls="$user_backup_urls $zenodourl"
+##     elapsed_time_from_prev_step zenodo-url
+## fi
 
 
 

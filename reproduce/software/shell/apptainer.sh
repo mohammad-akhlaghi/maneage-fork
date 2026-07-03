@@ -343,7 +343,7 @@ From: $base_sif
 
 %post
   cd /home/maneager/source
-  ./project configure --jobs=$jobs \\
+  ./project configure --jobs=$jobs --no-pause \\
                       --input-dir=/home/maneager/input \\
                       --build-dir=$intbuild \\
                       --software-dir=/home/maneager/tarballs-software

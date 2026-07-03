@@ -465,7 +465,7 @@ $(ibidir)/cfitsio-$(cfitsio-version):
 	$(call gbuild, cfitsio-$(cfitsio-version), , \
 	               $$confopts \
 	               --disable-curl \
-	               --disable-fortran \
+	               --without-fortran \
 	               --enable-reentrant \
 	               --with-bzip2=$(idir), , \
 	               make fpack funpack)
@@ -1764,6 +1764,20 @@ $(ibidir)/imfit-$(imfit-version): \
 	rm -rf $$unpackdir
 	echo "Imfit $(imfit-version) \citep{imfit2015}" > $@
 
+# jq (to parse JSON files on the command-line) uses the external Oniguruma
+# regular expression library that has ended development in 2025-04-24, see
+# https://github.com/kkos/oniguruma. If this library ('libonig') is present
+# on the host, jq will build with that: causing a leaking of os environment
+# into the Maneage'd environment. Fortunately, jq maintains a copy of this
+# library in its own source (within its tarball) and will build it with the
+# '--with-oniguruma=builtin' configuration option.
+$(ibidir)/jq-$(jq-version):
+	tarball=jq-$(jq-version).tar.lz
+	$(call import-source, $(jq-url), $(jq-checksum))
+	$(call gbuild, jq-$(jq-version), static, \
+	               --with-oniguruma=builtin, V=1)
+	echo "jq $(jq-version)" > $@
+
 # This is the LIGO lscsoft package 'metaio' [1] (to be distinguished from
 # some other packages with the same name).
 #
@@ -1771,7 +1785,7 @@ $(ibidir)/imfit-$(imfit-version): \
 $(ibidir)/metaio-$(metaio-version):
 	tarball=metaio-$(metaio-version).tar.lz
 	$(call import-source, $(metaio-url), $(metaio-checksum))
-	$(call gbuild, metaio-$(metaio-version), static)
+	$(call gbuild, metaio-$(metaio-version), static,, V=1)
 	echo "Lscsoft Metaio $(metaio-version)" > $@
 
 # Minizip 1.x is actually distributed within zlib. It doesn't have its own
@@ -2279,14 +2293,45 @@ $(ibidir)/vim-$(vim-version):
 	rm -rf $$unpackdir
 	echo "VIM $(vim-version)" > $@
 
-$(ibidir)/unzip-$(unzip-version): $(ibidir)/gzip-$(gzip-version)
+$(ibidir)/unzip-$(unzip-version):
+
+#	Prepare the tarball and build directory.
 	tarball=unzip-$(unzip-version).tar.lz
 	$(call import-source, $(unzip-url), $(unzip-checksum))
-	$(call gbuild, unzip-$(unzip-version), static,, \
-	               -f unix/Makefile generic \
-	               CFLAGS="-DBIG_MEM -DMMAP",,pwd, \
-	               -f unix/Makefile generic \
-	               BINDIR=$(ibdir) MANDIR=$(idir)/man/man1 )
+
+#	Unpack and go into the directory.
+	export LDFLAGS="$$LDFLAGS -static"
+	cd $(ddir)
+	rm -fr unzip-$(unzip-version)/
+	tar -xf $(tdir)/$$tarball --no-same-owner --no-same-permissions
+	cd unzip-$(unzip-version)/
+
+#	Remove reference to the old 'gmtime' function and include the
+#	system's 'time.h instead.
+	sed -i -e's|struct tm *gmtime(), *localtime();|#include <time.h>|' \
+	       -e'/gmtime/d; /localtime/d' unix/unxcfg.h
+
+#	The 'NO_DIR' variable causes conflicts: the unzip code has its own
+#	internal fallback implementation called 'NO_DIR'. The modern Linux
+#	system already provides a standard implementation using
+#	'dirent.h'. These two systems conflict with each other. This causes
+#	compilation errors such as conflicting types for DIR and invalid
+#	use of DIR.
+	sed -i -e's/-DNO_DIR//g' unix/configure
+	sed -i -e's/#ifdef NO_DIR/#if 0/g' unix/unix.c
+	sed -i -e's/-DNO_DIR//g' -e's/-U_NO_DIR//g' unix/Makefile
+
+#	Since unzip is no longer maintained, it uses an old C standard.
+	export CFLAGS="-std=gnu89 -fcommon"
+
+#	Build and install
+	make SHELL=$(ibdir)/bash -f unix/Makefile generic
+	make SHELL=$(ibdir)/bash install -f unix/Makefile \
+	     generic BINDIR=$(ibdir) MANDIR=$(idir)/man/man1
+
+#	Go back to the top build directory, clean up and finalize.
+	cd $(ddir)
+	rm -rf unzip-$(unzip-version)/
 	echo "Unzip $(unzip-version)" > $@
 
 $(ibidir)/zip-$(zip-version):

@@ -120,16 +120,24 @@ download_tarball() {
                        "$bservers"
     fi
 
+
     # Make sure this is the correct tarball.
     if type sha512sum > /dev/null 2> /dev/null; then
-      checksum=$(sha512sum "$ucname" | awk '{print $1}')
+
+      # On macOS, sha512sum wraps the hash in two lines. The 'tr -d '\n''
+      # part joins them into one before awk extracts the first field. On
+      # Linux (GNU coreutils) the output is already a single line, so the
+      # 'tr' command has no effect.
+      checksum=$(sha512sum "$ucname" | tr -d '\n' | awk '{print $1}')
       expectedchecksum=$(awk '/^'$progname'-checksum/{print $3}' \
                              "$checksumsfile")
-      if [ x$checksum = x$expectedchecksum ]; then mv "$ucname" "$maneagetar"
+      if [ x$checksum = x$expectedchecksum ]; then
+          mv "$ucname" "$maneagetar"
       else
-        echo "ERROR: Non-matching checksum: $tarball"
-        echo "Checksum should be: $expectedchecksum"
-        echo "Checksum is:        $checksum"
+        echo "ERROR: Non-matching checksum in $tarball"
+        echo "  Checksum should be: $expectedchecksum"
+        echo "  Checksum is:        $checksum"
+        rm -f "$ucname"
         exit 1
       fi;
     else mv "$ucname" "$maneagetar"

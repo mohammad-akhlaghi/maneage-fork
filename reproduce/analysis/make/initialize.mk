@@ -685,27 +685,40 @@ $(mtexdir)/initialize.tex:
 #	Calculate the latest Maneage commit used to build this project:
 #	  - The project may not have the 'maneage' branch (for example
 #	    after cloning from a fork that didn't include it!). In this
-#	    case, we'll print a descriptive warning, telling the user what
-#	    should be done (reporting the last merged commit and its date
-#	    is very useful for the future).
+#	    case, if a PDF is to be created, print a descriptive warning,
+#	    telling the user what should be done (reporting the last merged
+#	    commit and its date is very useful for the future).
+#	  - This is not relevant when no PDF is requested because we only
+#	    use this to print the latest Maneage commit as a LaTeX macro.
 #	  - The '--dirty' option (used in 'project-commit-hash') isn't
 #	    applicable to "commit-ishes" (direct quote from Git's error
-#	    message!).
+#	    message!), so no need to include it here.
 	if git log maneage -1 &> /dev/null; then
 	  c=$$(git merge-base HEAD maneage)
 	  v=$$(git describe --always --long $$c)
 	  d=$$(git show -s --format=%aD $$v | awk '{print $$2, $$3, $$4}')
+
+#	No 'maneage' branch found
 	else
-	  echo
-	  echo "WARNING: no 'maneage' branch found! Without it, the latest merge of "
-	  echo "this project with Maneage can't be reported in the paper (which is bad "
-	  echo "for your readers; that includes yourself in a few years). Please run "
-	  echo "the commands below to fetch the 'maneage' branch from its own server "
-	  echo "and remove this warning (these commands will not affect your project):"
-	  echo "   $ git remote add origin-maneage http://git.maneage.org/project.git"
-	  echo "   $ git fetch origin-maneage"
-	  echo "   $ git branch maneage --track origin-maneage/maneage"
-	  echo
+
+#	  Only print a warning if a PDF is to be created.
+	  if [ x$(pdf-build-final) = xyes ]; then
+	    echo
+	    printf "WARNING: no 'maneage' branch found! Without it, "
+	    printf "the latest merge of this project with Maneage can't "
+	    printf "be reported in the paper (which is bad for your "
+	    printf "readers; that includes yourself in a few years). "
+	    printf "Please run the commands below to fetch the "
+	    printf "'maneage' branch from its own server and remove "
+	    printf "this warning (these commands will not affect your "
+	    printf "project):\n"
+	    printf "   $ git remote add origin-maneage "
+	    printf "http://git.maneage.org/project.git\n"
+	    printf "   $ git fetch origin-maneage\n"
+	    printf "   $ git branch maneage --track "
+	    printf "origin-maneage/maneage\n"
+	    echo
+	  fi
 	  v="\textcolor{red}{NO-MANEAGE-BRANCH (see printed warning to fix this)}"
 	  d="\textcolor{red}{NO-MANEAGE-DATE}"
 	fi

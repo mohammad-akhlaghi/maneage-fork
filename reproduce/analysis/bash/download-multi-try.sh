@@ -90,6 +90,37 @@ urlfile=$(echo "$inurl" | awk -F "/" '{print $NF}')
 
 
 
+# Function for downloading
+download_func () {
+
+    # Set the arguments.
+    inurl="$1"
+
+    # Attempt downloading the file. Note that the 'downloader' ends with
+    # the respective option to specify the output name. For example "wget
+    # -O" (so 'outname', that comes after it) will be the name of the
+    # downloaded file.
+    if [ x"$lockfile" = xnolock ]; then
+        if ! $downloader $outname $inurl; then rm -f $outname; fi
+    else
+        flock "$lockfile" sh -c \
+           "if ! $downloader $outname \"$inurl\"; then rm -f $outname; fi"
+    fi
+
+    # Some servers return HTTP 4xx/5xx errors as an HTML page with a 200
+    # status, so the downloader exits 0 and saves the HTML body to disk.
+    # Detect this by checking whether the response starts with an HTML tag
+    # and treat it as a failed download so backup servers will be tried.
+    if [ -f "$outname" ] \
+       && head -c 500 "$outname" 2>/dev/null | grep -qi '<html'; then
+        rm -f "$outname"
+    fi
+}
+
+
+
+
+
 # Try downloading multiple times before crashing.
 counter=0
 maxcounter=10
@@ -119,30 +150,22 @@ while [ ! -f "$outname" ]; do
         sleep $tstep
     fi
 
-    # Attempt downloading the file. Note that the 'downloader' ends with
-    # the respective option to specify the output name. For example "wget
-    # -O" (so 'outname', that comes after it) will be the name of the
-    # downloaded file.
-    if [ x"$lockfile" = xnolock ]; then
-        if ! $downloader $outname $inurl; then rm -f $outname; fi
-    else
-        # Try downloading from the requested URL.
-        flock "$lockfile" sh -c \
-              "if ! $downloader $outname \"$inurl\"; then rm -f $outname; fi"
-    fi
+    # First attempt at the download.
+    download_func "$inurl"
 
     # If the download failed, try the backup server(s).
     if [ ! -f "$outname" ]; then
         if [ x"$backupservers" != x ]; then
             for bs in $backupservers; do
 
-                # Use this backup server.
-                if [ x"$lockfile" = xnolock ]; then
-                    if ! $downloader $outname $bs/$urlfile; then rm -f $outname; fi
-                else
-                    flock "$lockfile" sh -c \
-                          "if ! $downloader $outname $bs/$urlfile; then rm -f $outname; fi"
-                fi
+                # For Zenodo backup servers, append '?download=1' as well.
+                bsurl="$bs/$urlfile"
+                case "$bsurl" in
+                    *zenodo.org*) bsurl="${bsurl}?download=1" ;;
+                esac
+
+                # Download the file.
+                download_func "$bsurl"
 
                 # If the file was downloaded, break out of the loop that
                 # parses over the backup servers.
