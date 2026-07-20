@@ -73,7 +73,9 @@ set -e
 # Default option values
 sif=""
 jobs=0
+debug=0
 quiet=0
+host_cc=0
 source_dir=
 build_only=
 base_sif=""
@@ -100,6 +102,10 @@ Top-level script to build and run a Maneage'd project within Apptainer.
       --sif=STR            Project's apptainer image (a '.sif' file).
       --base-os=STR        Base OS name (default: '$base_os').
       --base-sif=STR       Base OS apptainer image (a '.sif' file).
+
+ Configuration options
+      --host-cc            Use containers's C compiler, don't build GCC.
+  -d, --debug[=FLAGS]      Use -j1 and stop on first crash.
 
  Interactive shell
       --project-shell      Open the project's shell within the container.
@@ -161,6 +167,12 @@ do
   --base-os=*)           base_os="${1#*=}";                           check_v "$1" "$base_os";     shift;;
   --base-sif)            base_sif="$2";                               check_v "$1" "$base_sif";    shift;shift;;
   --base-sif=*)          base_sif="${1#*=}";                          check_v "$1" "$base_sif";    shift;;
+
+  # Configuration options.
+  --host-cc)             host_cc=1;                                                                 shift;;
+  --host-cc=*)           on_off_option_error --host-cc;;
+  -d|--debug)            debug=1;                                                                   shift;;
+  -d|--debug=*)          on_off_option_error --debug;;
 
   # Interactive shell.
   --project-shell)       project_shell=1;                                                           shift;;
@@ -329,8 +341,11 @@ EOF
     #     software tarball directory, they will all be symbolic links that
     #     aren't valid when the user runs the container (since we only
     #     mount the software tarballs at build time).
+    confopts=""
     intbuild=/home/maneager/build
     maneage_def=$build_dir/maneage.def
+    if [ $host_cc = 1 ]; then confopts="--host-cc"; fi
+    if [ $debug = 1 ]; then confopts="$confopts --debug"; fi
     cat <<EOF > $maneage_def
 Bootstrap: localimage
 From: $base_sif
@@ -343,7 +358,7 @@ From: $base_sif
 
 %post
   cd /home/maneager/source
-  ./project configure --jobs=$jobs --no-pause \\
+  ./project configure --jobs=$jobs --no-pause $confopts \\
                       --input-dir=/home/maneager/input \\
                       --build-dir=$intbuild \\
                       --software-dir=/home/maneager/tarballs-software
@@ -351,7 +366,7 @@ From: $base_sif
 
 %runscript
   cd /home/maneager/source
-  if ./project configure --build-dir=$intbuild \\
+  if ./project configure --build-dir=$intbuild $confopts \\
                          --existing-conf --no-pause \\
                          --offline --quiet; then \\
      if   [ x"\$maneage_apptainer_stat" = xshell ]; then \\

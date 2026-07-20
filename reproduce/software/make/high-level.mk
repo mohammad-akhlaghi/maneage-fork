@@ -166,6 +166,7 @@ export PKG_CONFIG_PATH := $(ildir)/pkgconfig:$(idir)/share/pkgconfig
 .SUFFIXES:
 
 # Settings specific to this Makefile.
+export LC_ALL := C
 export CC := $(ibdir)/gcc
 export CXX := $(ibdir)/g++
 export F77 := $(ibdir)/gfortran

@@ -26,9 +26,9 @@
 # and X^2 and draw its plot.
 #
 # Note that this dataset is directly read by LaTeX to generate a plot, so
-# we need to put it in the $(tex-publish-dir) directory.
-dm-squared = $(tex-publish-dir)/squared.txt
-$(dm-squared): $(pconfdir)/delete-me-squared-num.conf | $(tex-publish-dir)
+# we need to put it in the $(figdir) directory.
+dm-squared = $(figdir)/squared.txt
+$(dm-squared): $(pconfdir)/delete-me-squared-num.conf | $(figdir)
 
 #	When the plotted values are re-made, it is necessary to also delete
 #	the TiKZ externalized files so the plot is also re-made by
@@ -87,10 +87,10 @@ $(dm-img-pdf): $(dm-histdir)/%.pdf: $(indir)/%.fits | $(dm-histdir)
 #
 # For an example plot, we'll show the pixel value histogram also. IMPORTANT
 # NOTE: because this histogram contains data that is included in a plot, we
-# should publish it, so it will go into the $(tex-publish-dir).
-dm-img-histogram = $(tex-publish-dir)/wfpc2-histogram.txt
-$(dm-img-histogram): $(tex-publish-dir)/%-histogram.txt: $(indir)/%.fits \
-                     | $(tex-publish-dir)
+# should publish it, so it will go into the $(figdir).
+dm-img-histogram = $(figdir)/wfpc2-histogram.txt
+$(dm-img-histogram): $(figdir)/%-histogram.txt: $(indir)/%.fits \
+                     | $(figdir)
 
 #	When the plotted values are re-made, it is necessary to also delete
 #	the TiKZ externalized files so the plot is also re-made.

@@ -96,6 +96,25 @@ download_func () {
     # Set the arguments.
     inurl="$1"
 
+    # During the installation of basic software, the dependencies of the
+    # downloaders that are installed in Maneage can conflict with the
+    # downloader that is not yet installed in Maneage. To avoid this, we
+    # check if the downloader works (with '--version') and remove the
+    # Maneage library temporarily in case it does not.
+    lpathorig=""
+    dprog=$(echo $downloader | awk '{print $1}')
+    if ! $dprog --version > /dev/null 2> /dev/null; then
+        echo "NOTE: the segmentation fault is expected, is not a problem"
+        basedir=$(echo $outname \
+                      | sed -e's|\/tarballs\/| |' \
+                      | awk '{print $1}')
+        libdir=$basedir/installed/lib
+        lpathorig=$LD_LIBRARY_PATH
+        lpath=$(echo $LD_LIBRARY_PATH \
+                    | sed -e's|'$libdir':||')
+        export LD_LIBRARY_PATH=$lpath
+    fi
+
     # Attempt downloading the file. Note that the 'downloader' ends with
     # the respective option to specify the output name. For example "wget
     # -O" (so 'outname', that comes after it) will be the name of the
@@ -105,6 +124,11 @@ download_func () {
     else
         flock "$lockfile" sh -c \
            "if ! $downloader $outname \"$inurl\"; then rm -f $outname; fi"
+    fi
+
+    # In case the LD_LIBRARY_PATH was changed, set it back to normal.
+    if ! [ x"$lpathorig" = x ]; then
+        export LD_LIBRARY_PATH=$lpathorig
     fi
 
     # Some servers return HTTP 4xx/5xx errors as an HTML page with a 200

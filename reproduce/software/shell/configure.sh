@@ -1342,11 +1342,17 @@ elapsed_time_from_prev_step software-dir
 # complete the configuration, we may also need to download the source code
 # of some necessary software packages (including the downloaders). So we
 # need to check the host's available tool for downloading at this step.
+#
+# NOTE: it is important that the name of the programs are not recorded to
+# be absolute (for example 'wget' instead of '/usr/bin/wget'). This is
+# because we build both 'wget' and 'curl' within 'basic.mk'. After they are
+# built, Maneage's built software have higher precedence in 'PATH'. So
+# without an absolute address, our own built software will be used as soon
+# as they are installed/available.
 if [ $rewritelconfig = yes ]; then
-    if type wget > /dev/null 2>/dev/null; then
 
-        # 'which' isn't in POSIX, so we are using 'command -v' instead.
-        name=$(command -v wget)
+    # First look for wget on the host.
+    if type wget > /dev/null 2>/dev/null; then
 
         # See if the host wget has the '--no-use-server-timestamps' option
         # (for example wget 1.12 doesn't have it). If not, we'll have to
@@ -1363,13 +1369,16 @@ if [ $rewritelconfig = yes ]; then
 
         # By default Wget keeps the remote file's timestamp, so we'll have
         # to disable it manually.
-        downloader="$name $wgetts -O";
+        downloader="wget $wgetts -O";
+
+    # In case Wget doesn't exist, try cURL.
     elif type curl > /dev/null 2>/dev/null; then
-        name=$(command -v curl)
 
         # - cURL doesn't keep the remote file's timestamp by default.
         # - With the '-L' option, we tell cURL to follow redirects.
-        downloader="$name -L -o"
+        downloader="curl -L -o"
+
+    # Neither Wget or cURL could be found.
     else
         cat <<EOF
 

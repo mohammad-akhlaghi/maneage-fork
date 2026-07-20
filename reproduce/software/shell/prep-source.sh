@@ -32,6 +32,15 @@ set -e
 
 
 
+
+# Set the locale to C to make sure local language settings do not
+# interefere (especially with the SED command).
+export LC_ALL=C
+
+
+
+
+
 # Read the first argument.
 bindir="$1"
 if [ x"$bindir" = x ]; then

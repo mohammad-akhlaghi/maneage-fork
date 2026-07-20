@@ -35,8 +35,8 @@ group=
 debug=
 quiet=0
 timing=0
-host_cc=0
 offline=
+host_cc=0
 operation=
 build_dir=
 input_dir=
@@ -123,14 +123,14 @@ Configure options:
   -s, --software-dir=STR   Directory containing necessary software tarballs.
 
 Configure and Make options:
-  -d, --debug[=FLAGS]      In configure: use -j1, no -k, and no Zenodo check.
+  -d, --debug[=FLAGS]      In configure: use -j1 and stop on first crash.
                            In make: 'FLAGS' will be directly passed to 'make'.
-  -k, --keep-going         Keep going when some targets can't be made.
   -g, --group=STR          Build and run with write permissions for a group.
   -j, --jobs=INT           Number of threads to build/run the software.
   -?, --help               Print this help list.
 
 Make (analysis) options:
+  -k, --keep-going         Keep going when some targets can't be made.
   -p, --prepare-redo       Re-do preparation (only done automatically once).
   -t, --timing             Starting and ending times written in 'timing.txt'.
 
@@ -649,6 +649,7 @@ case $operation in
         bindir="$bdir"/software/installed/bin
         rcfile=$(pwd)/reproduce/software/shell/bashrc.sh
         .local/bin/env -i \
+            LC_ALL=C \
             HOME="$bdir" \
             TERM="$TERM" \
             PATH="$bindir" \

@@ -87,6 +87,7 @@ all: $(foreach p, $(targets-proglib), $(ibidir)/$(p)); @echo > /dev/null
 # own build-directory comes first.
 .ONESHELL:
 .SHELLFLAGS := -e -c
+export LC_ALL := C
 export CCACHE_DISABLE := 1
 export SHELL := $(ibdir)/dash
 export PATH := $(ibdir):$(PATH)
@@ -123,6 +124,7 @@ export LD_LIBRARY_PATH=$(sys_library_sh_path)
 endif
 export LD_LIBRARY_PATH := $(shell echo $(ildir):$(LD_LIBRARY_PATH) \
                                   | sed -e's/::/:/g' -e's/^://' -e's/:$$//')
+ldpathorig := $(subst $(ildir):,,$(LD_LIBRARY_PATH))
 
 # RPATH is automatically written in macOS, so 'DYLD_LIBRARY_PATH' is
 # ultimately redundant. But on some systems, even having a single value
@@ -459,6 +461,21 @@ $(ibidir)/pkg-config-$(pkgconfig-version): $(ibidir)/tar-$(tar-version)
 	  printf                ' glib/configure\n' >> $$confsh
 	  printf 'exec ./configure "$$@"\n' >> $$confsh
 	  chmod +x $$confsh
+
+#	  For its 'glib' installation within macOS, pkg-config needs a
+#	  working Python for its build (not affecting its final code), but
+#	  only searches for '/usr/bin/python'. However, some users may have
+#	  Python available in another location, so we'll set it externally
+#	  here to be safe. Note that 'which' is not present on some
+#	  systems, 'command -v' is more portable).
+	  if type python > /dev/null 2> /dev/null; then
+	    pypath=$$(command -v python)
+	  elif type python3 > /dev/null 2> /dev/null; then
+	    pypath=$$(command -v python3)
+	  else
+	    printf "pkg-config: ERROR: a local Python is necessary"; exit 1
+	  fi
+	  export PYTHON=$$pypath
 	fi
 
 #	Configuration options:
@@ -471,6 +488,8 @@ $(ibidir)/pkg-config-$(pkgconfig-version): $(ibidir)/tar-$(tar-version)
 	       --with-pc-path=$(ildir)/pkgconfig, V=1, , $$confsh)
 	if [ -f $$confsh ]; then rm $$confsh; fi # Only on macOS.
 	echo "pkg-config $(pkgconfig-version)" > $@
+
+
 
 
 
@@ -677,7 +696,6 @@ $(ibidir)/bash-$(bash-version): \
 #	to the Bash that we just built and installed.
 	ln -fs $(ibdir)/bash $(ibdir)/sh
 	echo "GNU Bash $(bash-version)" > $@
-
 
 
 
@@ -939,6 +957,23 @@ $(ibidir)/wget-$(wget-version): \
 #	Download the tarball.
 	tarball=wget-$(wget-version).tar.lz
 	$(call import-source, $(wget-url), $(wget-checksum))
+
+#	Wget needs a working Python for its tests (VERY BAD DESIGN!), this
+#	does not affect its final operation. But only searches for
+#	'/usr/bin/python'. However, some users may have Python available in
+#	another location, so we'll set it externally here to be safe. Note
+#	that 'which' is not present on some systems, 'command -v' is more
+#	portable).
+	if [ x$(on_mac_os) = xyes ]; then
+	  if type python > /dev/null 2> /dev/null; then
+	    pypath=$$(command -v python)
+	  elif type python3 > /dev/null 2> /dev/null; then
+	    pypath=$$(command -v python3)
+	  else
+	    printf "Wget: ERROR: a local Python is necessary"; exit 1
+	  fi
+	  export PYTHON=$$pypath
+	fi
 
 #	We need to explicitly disable 'libiconv', because of the
 #	'pkg-config' and 'libiconv' problem.

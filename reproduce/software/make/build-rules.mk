@@ -40,6 +40,14 @@
 # Necessary shell variables
 #   'tarball': This is the name of the actual tarball file without a
 #   directory.
+#
+# Notes:
+#  - The LD_LIBRARY_PATH correction is because we build the dependencies of
+#    the downloaders (Wget or cURL) before they are built them selves. In
+#    the time between the installation of the downloader dependencies and
+#    the downloader, the Gnuastro libraries may cause crashes in the host's
+#    downloader since normally, Gnuastro's library has higher precedence in
+#    'LD_LIBRARY_PATH'.
 import-source = final=$(tdir)/$$tarball; \
 	url=$(strip $(1)); \
 	exp_checksum="$(strip $(2))"; \
@@ -82,8 +90,14 @@ import-source = final=$(tdir)/$$tarball; \
 	  if [ x"$$exp_checksum" = x"NO-CHECK-SUM" ]; then \
 	    mv "$$unchecked" "$$final"; \
 	  else \
-	    if type sha512sum > /dev/null 2>/dev/null; then \
+	    if type sha512sum > /dev/null 2> /dev/null; then \
+	      if ! sha512sum --version > /dev/null 2> /dev/null; then \
+	        export LD_LIBRARY_PATH=$(ldpathorig); \
+	      fi; \
 	      checksum=$$(sha512sum "$$unchecked" | awk '{print $$1}'); \
+	      if [ LD_LIBRARY_PATH = $(ldpathorig) ]; then \
+	        export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH); \
+	      fi; \
 	      if [ x"$$checksum" = x"$$exp_checksum" ]; then \
 	        mv "$$unchecked" "$$final"; \
 	      else \

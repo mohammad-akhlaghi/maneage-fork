@@ -53,6 +53,45 @@ pconfdir    = reproduce/analysis/config
 
 
 
+# Directories for to-be-published data
+# ------------------------------------
+#
+# Its good practice (so you don't forget in the last moment!) to have all
+# the plot/figure/table data that you ultimately want to publish in a
+# single directory.
+#
+# There are two types of to-publish data in the project.
+#
+#  1. Those data that also go into your figures/plots (for example to give
+#     to LateX's PGFPlots package to create the plot internally) should be
+#     under the '$(texdir)' directory (because other LaTeX producers may
+#     also need it for example when using './project make dist', or you may
+#     want to publish the raw data behind the plots, for example see
+#     Appendix E of [1]). The contents of this directory are also directly
+#     taken into the tarball. As you see in [1], it is best to keep these
+#     files in plain-text format.
+#
+#  2. The data that are not included directly in the paper's figures and
+#     can be seen as supplements, or a "data release" associated to the
+#     report. A good place to keep them is under your build-directory
+#     (since the data may be large). These files can be custom formats like
+#     FITS files.
+#
+# RECOMMENDATION: don't put the figure/plot/table number in the names of
+# your to-be-published datasets! Given them a descriptive/short name that
+# would be clear to anyone who has read the paper. Later, in the caption
+# (or paper's tex/appendix), you will put links to the dataset on servers
+# like Zenodo (see the "Publication checklist" in 'README-hacking.md').
+#
+# [1] https://scixplorer.org/abs/2026A&A...709A.210E
+drdir = $(badir)/data-release
+figdir = $(texdir)/figures-data
+$(figdir) $(drdir):; mkdir $@
+
+
+
+
+
 # Preparation phase
 # -----------------
 #
@@ -145,6 +184,7 @@ curdir   := $(shell echo $$(pwd))
 # avoid conflicts with existing TeX Live solutions. Later (in 'paper.mk'),
 # we are also going to overwrite 'TEXINPUTS' just before 'pdflatex'.
 .ONESHELL:
+export LC_ALL := C
 export TEXINPUTS :=
 export CCACHE_DISABLE := 1
 export PATH := $(installdir)/bin
@@ -589,41 +629,6 @@ $(inputdatasets): $(indir)/%: | $(indir) $(lockdir)
 	    echo; exit 1
 	  fi
 	fi
-
-
-
-
-
-# Directory containing to-be-published datasets
-# ---------------------------------------------
-#
-# Its good practice (so you don't forget in the last moment!) to have all
-# the plot/figure/table data that you ultimately want to publish in a
-# single directory.
-#
-# There are two types of to-publish data in the project.
-#
-#  1. Those data that also go into LaTeX (for example to give to LateX's
-#     PGFPlots package to create the plot internally) should be under the
-#     '$(texdir)' directory (because other LaTeX producers may also need it
-#     for example when using './project make dist', or you may want to
-#     publish the raw data behind the plots, like:
-#     https://zenodo.org/record/4291207/files/tools-per-year.txt). The
-#     contents of this directory are also directly taken into the tarball.
-#
-#  2. The data that aren't included directly in the LaTeX run of the paper,
-#     can be seen as supplements. A good place to keep them is under your
-#     build-directory.
-#
-# RECOMMENDATION: don't put the figure/plot/table number in the names of
-# your to-be-published datasets! Given them a descriptive/short name that
-# would be clear to anyone who has read the paper. Later, in the caption
-# (or paper's tex/appendix), you will put links to the dataset on servers
-# like Zenodo (see the "Publication checklist" in 'README-hacking.md').
-tex-publish-dir = $(texdir)/to-publish
-data-publish-dir = $(badir)/data-to-publish
-$(tex-publish-dir):; mkdir $@
-$(data-publish-dir):; mkdir $@
 
 
 
