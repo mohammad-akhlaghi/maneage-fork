@@ -88,16 +88,19 @@ been explained here), please let us know to correct it.
 
     In the first text editor that opens after the last command, change all
     (except the first) `pick`s into `squash`, then save the change and
-    close the editor. In case there is no conflict, the second editor will
-    be pre-filled with all the commit messages in that branch. You do not
-    need those, so you can delete everything and write a commit message
-    like the following: `A&A journal (commit XXXXX of Maneage's
-    journal-a-and-a branch)`. Just replace the `XXXXX` with the output of
-    the second command above. The commit hash is important to be stored
-    here since it allows you to later check if any updates have been made
-    in that branch in the future. After completing the git rebase operation
-    (last command above), run the following commands below to put the new
-    commit in your `main` branch (and continue working based on that).
+    close the editor. If you notice any conflicts during the rebase, always
+    prefer the `HEAD` (or latest `maneage` branch) version for non-TeX
+    related files; then run `git rebase --continue`. Once the rebase is
+    finished, the editor will be pre-filled with all the commit messages in
+    that branch. You do not need those, so you can delete everything and
+    write a commit message like the following: `A&A journal (commit XXXXX
+    of Maneage's journal-a-and-a branch)`. Just replace the `XXXXX` with
+    the output of the second command above. The commit hash is important to
+    be stored here since it allows you to later check if any updates have
+    been made in that branch in the future. After completing the git rebase
+    operation (last command above), run the following commands below to put
+    the new commit in your `main` branch (and continue working based on
+    that).
 
     ```shell
     $ git checkout main
@@ -105,7 +108,7 @@ been explained here), please let us know to correct it.
     $ git branch -D journal
     ```
 
- 3. **Prepare for configuration**: The `./harvester configure` command of
+ 3. **Prepare for configuration**: The `./project configure` command of
      the next step will build the different software packages within the
      "build" directory (that you will specify). Nothing else on your system
      will be touched. However, since it takes long, it is useful to see
@@ -122,23 +125,23 @@ been explained here), please let us know to correct it.
 
      ```shell
      # On another terminal (go to top project source directory, last command above)
-     $ ./harvester --check-config
+     $ ./project --check-config
      ```
 
  4. **Test Maneage**: Before making any changes, it is important to test it
      and see if everything works properly with the commands below. If there
-     is any problem in the `./harvester configure` or `./harvester make` steps,
+     is any problem in the `./project configure` or `./project make` steps,
      please contact us to fix the problem before continuing. Since the
      building of dependencies in configuration can take long, you can take
      the next few steps (editing the files) while its working (they don't
-     affect the configuration). After `./harvester make` is finished, open
+     affect the configuration). After `./project make` is finished, open
      `paper.pdf`. If it looks fine, you are ready to start customizing the
      Maneage for your project. But before that, clean all the extra Maneage
      outputs with `make clean` as shown below.
 
      ```shell
-     $ ./harvester configure           # Build the project's software environment (can take an hour or so).
-     $ ./harvester make                # Do the processing and build paper (just a simple demo).
+     $ ./project configure           # Build the project's software environment (can take an hour or so).
+     $ ./project make                # Do the processing and build paper (just a simple demo).
 
      # Open 'paper.pdf' and see if everything is ok.
      ```
@@ -177,7 +180,7 @@ been explained here), please let us know to correct it.
      to `\begin{document}`. Just note that some core project metadata like
      the project title are actually set in
      `reproduce/analysis/config/metadata.conf`. So set your project title
-     in there. After you are done, run the `./harvester make` command again
+     in there. After you are done, run the `./project make` command again
      to see your changes in the final PDF and make sure that your changes
      don't cause a crash in LaTeX. Of course, if you use a different LaTeX
      package/style for managing the title and authors (in particular a
@@ -233,8 +236,8 @@ been explained here), please let us know to correct it.
        introduced any errors.
 
        ```shell
-       $ ./harvester make clean
-       $ ./harvester make
+       $ ./project make clean
+       $ ./project make
        ```
 
  8. **Ignore changes in some Maneage files**: One of the main advantages of
@@ -316,7 +319,7 @@ been explained here), please let us know to correct it.
      ```shell
      $ git status                 # See which files you have changed.
      $ git diff                   # Check the lines you have added/changed.
-     $ ./harvester make             # Make sure everything builds successfully.
+     $ ./project make             # Make sure everything builds successfully.
      $ git add -u                 # Put all tracked changes in staging area.
      $ git status                 # Make sure everything is fine.
      $ git diff --cached          # Confirm all the changes that will be committed.
@@ -430,15 +433,15 @@ project. Here, we list some of the other steps that are usually necessary.
      analysis that is done after preparation). Because of this, preparation
      will be done automatically for the first time that the project is run
      (when `.build/software/preparation-data.mk` doesn't exist). After the
-     preparation process completes once, future runs of `./harvester make`
+     preparation process completes once, future runs of `./project make`
      will not do the preparation process anymore (will not call
      `top-prepare.mk`). They will only call `top-make.mk` for the
      analysis. To manually invoke the preparation process after the first
-     attempt, the `./harvester make` script should be run with the
+     attempt, the `./project make` script should be run with the
      `--prepare-redo` option, or you can delete the special file above.
 
      ```shell
-     $ ./harvester make --prepare-redo
+     $ ./project make --prepare-redo
      ```
 
  - **Pre-publication**: add notice on reproducibility**: Add a notice
@@ -534,9 +537,9 @@ delete your build directory and let the software and project be executed
 from scratch.
 
 ```shell
-$ ./harvester make distclean   # will DELETE ALL your build-directory!!
-$ ./harvester configure -e
-$ ./harvester make
+$ ./project make distclean   # will DELETE ALL your build-directory!!
+$ ./project configure -e
+$ ./project make
 ```
 
 6. Once your final product is created at the end of the previous step and
@@ -784,18 +787,18 @@ future.
    into Git or depended on in the build (it happens!). Ideally, it would be
    good to try it on a different computer.
 
- - **Confirm if `./harvester make dist` works**: The special target `dist`
+ - **Confirm if `./project make dist` works**: The special target `dist`
    tells the project to build a tarball that is ready to compile the LaTeX
    PDF without having to do the analysis and build software. This is very
    useful for servers like arXiv, or some journals. This tarball is also
    one of the deliverables you want to publish on Zenodo. Once the tarball
    is created, copy it to a temporary directory outside of Maneage, unpack
-   it and run `make` (completely ignoring Maneage's `./harvester`
+   it and run `make` (completely ignoring Maneage's `./project`
    script). If you plan to submit your paper to arXiv, the best test is to
    actually start a test submission on arXiv to upload the tarball there to
    see if it can build your PDF. Once it works, you can delete that
    temporary submission for now. Afterwards, try configuring and building
-   it with the tarball by running its `./harvester` (from scratch and
+   it with the tarball by running its `./project` (from scratch and
    without the Git history!). If there is a problem in any of these tests,
    you can modify what goes into this tarball in
    `reproduce/analysis/make/initialize.mk`: go through the steps and add
@@ -836,7 +839,7 @@ future.
        `.build/software/tarballs`. It is necessary to upload these with
        your project to avoid relying on third party servers. In the future
        any one of those servers may go down and if so, your project won't
-       be buildable. You can generate this tarball easily with `./harvester
+       be buildable. You can generate this tarball easily with `./project
        make dist-software`.
 
      * All the figure (and other) output datasets of the project. Don't
@@ -988,11 +991,11 @@ If you are not familiar with this documentation format, the good news is
 that it has a very nice manual for itself that you can easily enter with
 the second command below. The first command takes you into the interactive
 Maneage'd software environment. In case you have the software environment
-within a container, include the `--sif` option (just like the `./harvester
+within a container, include the `--sif` option (just like the `./project
 make` command).
 
 ```shell
-$ ./harvester shell
+$ ./project shell
 $ info info
 ```
 
@@ -1006,8 +1009,8 @@ SED or Gnuastro), and you'll see how powerful and convenient it is.
 If you use the GNU Emacs text editor (or any of its variants), you also
 have access to all Info manuals while you are writing your code (again,
 without taking your hands off the keyboard!): simply run `Ctrl-h i` inside
-Emacs. Emacs (along with Vim) is available within the Harvester software
-environment (which you can access through `./harvester shell`).
+Emacs. Emacs (along with Vim) is available within the Project software
+environment (which you can access through `./project shell`).
 
 
 
@@ -1187,7 +1190,7 @@ source directory has two top-level directories:
 
    - `software/`: all the instructions to download, build and install
      (independent of the host operating system) the necessary
-     software. These are executed when you ran the `./harvester configure`.
+     software. These are executed when you ran the `./project configure`.
 
    - `analysis/`: all the analysis steps of your project: that are executed
      with the `./project make` command.
@@ -1204,7 +1207,7 @@ for easy access to the build directory from your top source directory. See
 the corresponding sub-section below for more on those: they are very useful
 while you are developing your project.
 
-Once the project is configured for your system, `./harvester make` will do
+Once the project is configured for your system, `./project make` will do
 the basic preparations and run the project's analysis with the custom
 version of software. The `project` script is just a wrapper, and with the
 `make` argument, it will first call `top-prepare.mk` and `top-make.mk`
@@ -1229,7 +1232,7 @@ section below on a good strategy to deal with large/huge files).
 
 To keep the source and (intermediate) built files separate, the user _must_
 define a top-level build directory variable (or `$(BDIR)`) to host all the
-intermediate files (you defined it during `./harvester configure`). This
+intermediate files (you defined it during `./project configure`). This
 directory doesn't need to be version controlled or even synchronized, or
 backed-up in other servers: its contents are all products, and can be
 easily re-created any time. As you define targets for your new rules, it is
@@ -1246,8 +1249,8 @@ actually contain analysis/processing rules).
 
 The configuration-Makefiles are those that satisfy these two wildcards:
 `reproduce/software/config/*.conf` (for building the necessary software
-when you run `./harvester configure`) and `reproduce/analysis/config/*.conf`
-(for the high-level analysis, when you run `./harvester make`). These
+when you run `./project configure`) and `reproduce/analysis/config/*.conf`
+(for the high-level analysis, when you run `./project make`). These
 Makefiles don't actually have any rules, they just have values for various
 free parameters throughout the configuration or analysis. Open a few of
 them to see for yourself. These Makefiles must only contain raw Make
@@ -1288,15 +1291,15 @@ users of a Unix group (when working on large computer clusters). In this
 scenario, each user can have their own cloned project source, but share the
 large built files between each other. To do this, it is necessary for all
 built files to give full permission to group members while not allowing any
-other users access to the contents. Therefore the `./harvester configure` and
-`./harvester make` steps must be called with special conditions which are
+other users access to the contents. Therefore the `./project configure` and
+`./project make` steps must be called with special conditions which are
 managed in the `--group` option.
 
 Let's see how this design is implemented. Please open and inspect
 `top-make.mk` it as we go along here. The first step (un-commented line) is
 to import the local configuration (your answers to the questions of
-`./harvester configure`). They are defined in the configuration-Makefile
-`reproduce/software/config/LOCAL.conf` which was also built by `./harvester
+`./project configure`). They are defined in the configuration-Makefile
+`reproduce/software/config/LOCAL.conf` which was also built by `./project
 configure` (based on the `LOCAL.conf.in` template of the same directory).
 
 The next non-commented set of the top `Makefile` defines the ultimate
@@ -1410,9 +1413,9 @@ sub-directory of the source.
 
 ## Easy access to build directory from source
 
-After it finishes, `./harvester configure` will create the following
-symbolic links (also directories) in the project's top source directory for
-easy access to the build directory.
+After it finishes, `./project configure` will create the following symbolic
+links (also directories) in the project's top source directory for easy
+access to the build directory.
 
 - `.build` points to the top build directory. This is very useful for fast
   access to the build directory without having to worry about which system
@@ -1678,6 +1681,66 @@ sure to clean up any possibly remaining files (due to crashes in the
 processing while you are working), otherwise your RAM may fill up very
 fast. You can do it easily with a command like this on your command-line:
 `rm -f /dev/shm/$(whoami)-*`.
+
+### Pattern rules with multiple components
+
+In a large pipeline, as you go from the lower-level to higher-level
+targets, the higher-level targets can depend on multiple lower-level
+files. However, Make's [pattern
+rules](https://www.gnu.org/software/make/manual/html_node/Pattern-Rules.html)
+only allow the extraction of a single component. The minimal working
+example below shows how to account for such situations.
+
+The targets in this minimal working example are in the format of
+`file-*.fits`. The low-level files only have one character instead of the
+`*` (for example `file-1.fits`). The high-level targets have three
+characters there (with `-` as a delimiter; for example
+`file-1-a.fits`). This Makefile will ensure that `file-1-a.fits` is always
+built as soon as `file-1.fits` and `file-a.fits` have been created. As
+described in the comments ontop of the `$(targets)` rule, this uses GNU
+Make's [secondary
+expansion](https://www.gnu.org/software/make/manual/html_node/Secondary-Expansion.html).
+
+```make
+# Low-level target file components.
+numbers = 1 2 3 4
+letters = a b c d
+
+# Ultimate (first) target that depends on the last target in this Makefile
+# to simplify the writing of the rest (in a human-friendly manner:
+# redundant for Make). This is not necessray in Maneage; only to help the
+# readability of this file.
+all: final
+.PHONY: all final
+
+# This allows using functions in prequisite lists as described below.
+.SECONDEXPANSION:
+
+# Rule to build the alphabetical low-level files.
+alphabets := $(foreach i,$(letters),file-$(i).fits)
+$(alphabets): file-%.fits:
+	@echo "Making $@"; touch $@
+
+# Rule to build the numeric low-level files.
+numerics := $(foreach i,$(numbers),file-$(i).fits)
+$(numerics): file-%.fits:
+	@echo "Making $@"; touch $@
+
+# Rule to build the high-level target: each high-level target depends on an
+# alphabetic and numeric low-level target. All functions in the
+# prerequisite need '$$(...)'  instead of '$(...)' to avoid expansion in
+# the first parsing of the file and let it get expanded in the second
+# parsing (thus necessity of '.SECONDEXPANSION' above).
+targets := $(foreach i,$(numbers), \
+             $(foreach j,$(letters), \
+               file-$(i)-$(j).fits) )
+$(targets): file-%.fits: file-$$(word 1,$$(subst -, ,%)).fits \
+                         file-$$(word 2,$$(subst -, ,%)).fits
+	@echo "Prequisities of $@ are: $^"
+
+# Dependency of 'all'
+final: $(targets)
+```
 
 
 
@@ -2068,6 +2131,10 @@ section, the development workflow is described:
      (to be preserved during the squash) and not in the commit message.
  - Checklist for the maintainer:
    - Make sure all contributors are properly acknowledged.
+   - In case any software was added in the 'maneage' branch or the version
+     of existing software was updated, upload/push the new tarballs to all
+     the backup repositories (in
+     `reproduce/software/config/servers-backup.conf`).
    - The final commit amend (done to edit the final text of the commit
      message) should be like this: `git commit --amend --date=now`. This
      helps have a date on the commit that matches the merge (independent of

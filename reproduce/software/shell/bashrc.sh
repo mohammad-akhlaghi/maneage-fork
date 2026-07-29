@@ -62,13 +62,13 @@ if [ x$PROJECT_STATUS = xshell ]; then
     # A small introductory message.
     echo "----------------------------------------------------------------------"
     echo "Welcome to the Maneage interactive shell for this project, running"
-    echo " $(sh --version | awk 'NR==1')"
+    echo "  $(sh --version | awk 'NR==1')"
     echo
     echo "This shell's home directory is the project's build directory:"
-    echo " HOME: $HOME"
+    echo "  HOME: $HOME"
     echo
     echo "This shell's startup file is in the project's source directory:"
-    echo " $PROJECT_RCFILE"
+    echo "  $PROJECT_RCFILE"
     echo
     echo "To return to your host shell, run the 'exit' command."
     echo "----------------------------------------------------------------------"

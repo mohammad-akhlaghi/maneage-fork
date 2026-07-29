@@ -679,7 +679,7 @@ case $operation in
 No operation defined!
 
 Please run with '--help' for more information.
-(TIP: available operations are: 'configure', 'make', or 'shell').
+(TIP: available modes are: 'configure', 'make', or 'shell').
 
 EOF
         exit 1

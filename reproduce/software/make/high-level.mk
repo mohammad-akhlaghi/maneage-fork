@@ -2236,6 +2236,7 @@ $(ibidir)/util-linux-$(util-linux-version): \
 $(ibidir)/xlsxio-$(xlsxio-version): \
                  $(ibidir)/cmake-$(cmake-version) \
                  $(ibidir)/expat-$(expat-version) \
+                 $(ibidir)/libbsd-$(libbsd-version) \
                  $(ibidir)/minizip-$(minizip-version)
 	tarball=xlsxio-$(xlsxio-version).tar.gz
 	$(call import-source, $(xlsxio-url), $(xlsxio-checksum))
