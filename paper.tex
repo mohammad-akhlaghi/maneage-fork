@@ -1,6 +1,6 @@
 %% Copyright (C) 2018-2025 Mohammad Akhlaghi <mohammad@akhlaghi.org>
 %% See the end of the file for license conditions.
-\documentclass[preprint2, times, twocolappendix]{aastex631}
+\documentclass[preprint2, times, twocolappendix]{aastex702}
 
 %% (OPTIONAL) CONVENIENCE VARIABLE: Only relevant when you use Maneage's
 %% '\includetikz' macro to build plots/figures within LaTeX using TikZ or
@@ -42,9 +42,11 @@
 %% Title
 \title{\projecttitle}
 
-%% Authors
-\author[0000-0012-3245-1234]{Your Name}
-\affiliation{Your affiliation; \href{mailto:your@email.address}{your@email.address}}
+%% Authors; if given (gname) or surname (sname) are multi-word, use
+%% single-quotes around the value. For example: "sname='Two words'".
+\author[orcid=0000-0012-3245-1234,gname=Your,sname=Name]{Your Name}
+\affiliation{Your affiliation}
+\email{your@email.address}
 
 %% Abstract
 \begin{abstract}
@@ -54,7 +56,9 @@
 \end{abstract}
 
 %% Keywords (from https://astrothesaurus.org)
-\keywords{Keyword1 name (XXXX), Keyword2 name (XXXX)}
+\keywords{ \uat{First keyword}{AAAA} ---
+           \uat{Second keyword}{BBBB} ---
+           \uat{Third keyword}{CCC} }
 
 
 
@@ -97,7 +101,7 @@ The analysis of this research note was done using GNU Astronomy Utilities (Gnuas
 
 %% Bibliography
 \bibliography{references}{}
-\bibliographystyle{aasjournal}
+\bibliographystyle{aasjournalv7.1}
 
 %% Start appendix.
 \appendix

@@ -123,8 +123,8 @@ $(texbdir)/paper.bbl: tex/src/references.tex $(mtexdir)/dependencies-bib.tex \
 	  rm -f $@
 
 #	  Link the AASTeX LaTex and bibliography style here.
-	  ln -sf $$p/tex/src/aastex631.cls ./
-	  ln -sf $$p/tex/src/aasjournal.bst ./
+	  ln -sf $$p/tex/src/aastex702.cls ./
+	  ln -sf $$p/tex/src/aasjournalv7.1.bst ./
 
 #	  Fill the 'references.bib' (in Maneage, the software dependencies
 #	  are in 'tex/build/macros/dependencies-bib.tex'
