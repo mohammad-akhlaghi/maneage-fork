@@ -314,6 +314,7 @@ $(project-package-contents): paper.pdf | $(texdir)
 	m=$$dir/Makefile
 	echo   "paper.pdf: paper.tex paper.bbl"                   > $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
+	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	echo   "paper.bbl: tex/src/references.tex"               >> $$m
 	printf "\tpdflatex -shell-escape -halt-on-error paper\n" >> $$m
 	printf "\tbibtex paper\n"                                >> $$m
@@ -385,7 +386,7 @@ $(project-package-contents): paper.pdf | $(texdir)
 #	PROJECT SPECIFIC
 #	----------------
 #	Put any project-specific distribution steps here.
-	cp tex/src/aasjournal.bst tex/src/aastex631.cls $$dir/
+	cp tex/src/aasjournalv7.1.bst tex/src/aastex702.cls $$dir/
 #	----------------
 
 #	Clean temporary files that may have been created by text editors.
